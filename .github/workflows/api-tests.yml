@@ -1,0 +1,214 @@
+name: API Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm install -g newman newman-reporter-html
+          cd mock-server && npm install
+
+      - name: Start mock server
+        run: |
+          cd mock-server
+          node server.js &
+          sleep 5
+          curl -s -X POST http://localhost:3000/__reset
+          echo "Mock server ready on :3000"
+
+      - name: Create reports directory
+        run: mkdir -p newman/reports
+
+      # ── 00 注册模块 ────────────────────────────────────────
+      # 5 请求 / 24 断言
+      # 独立 Collection，不依赖数据驱动
+      # ──────────────────────────────────────────────────────
+      - name: Run 00-Register module
+        id: register
+        continue-on-error: true
+        run: |
+          newman run postman/collections/00-注册模块.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/register_report.json \
+            --reporter-html-export newman/reports/register_report.html
+
+      # ── 01 登录数据驱动 ──────────────────────────────────
+      # 7 次迭代 × 11 请求 = 77 请求 / 376 断言
+      # CSV 列名 input_username/input_password 避免污染独立用例
+      # --export-environment 将最后一个成功迭代的 token 持久化
+      # 供后续订单模块和 E2E 模块使用
+      # ──────────────────────────────────────────────────────
+      - name: Run 01-Login module (DDT)
+        id: login
+        continue-on-error: true
+        run: |
+          newman run postman/collections/01-登录模块.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -d postman/data/login_data.csv \
+            --export-environment postman/environments/dev.environment.json \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/login_report.json \
+            --reporter-html-export newman/reports/login_report.html
+
+      # ── 02 订单数据驱动 ──────────────────────────────────
+      # 6 次迭代 × 35 请求 = 210 请求 / 795 断言
+      # 使用上一步导出的 auth_token（环境文件中）
+      # 全局 Pre-request 自动为非 auth 用例跳过 token 注入
+      # ──────────────────────────────────────────────────────
+      - name: Run 02-Order module (DDT)
+        id: order
+        continue-on-error: true
+        run: |
+          newman run postman/collections/02-订单模块.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -d postman/data/order_data.csv \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/order_report.json \
+            --reporter-html-export newman/reports/order_report.html
+
+      # ── 03 E2E 全链路 ────────────────────────────────────
+      # 6 请求 / 24 断言
+      # 自包含登录 → 创建 → 查询 → 支付 → 查询(PAID) → 取消(409)
+      # 全局 Pre-request 自动注入 token（E2E-01 生成）
+      # ──────────────────────────────────────────────────────
+      - name: Run 03-E2E module
+        id: e2e
+        continue-on-error: true
+        run: |
+          newman run postman/collections/03-端到端E2E.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/e2e_report.json \
+            --reporter-html-export newman/reports/e2e_report.html
+
+      # ── 04 支付模块 ────────────────────────────────────────
+      # 8 请求 / 36 断言
+      # 独立 Collection，3 个用动态创建订单（001/004/006）
+      # 使用上一步导出的 auth_token
+      # ──────────────────────────────────────────────────────
+      - name: Run 04-Payment module
+        id: payment
+        continue-on-error: true
+        run: |
+          newman run postman/collections/04-支付模块.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/payment_report.json \
+            --reporter-html-export newman/reports/payment_report.html
+
+      # ── 05 安全测试模块 ──────────────────────────────────
+      # 14 请求 / 40+ 断言
+      # 独立 Collection，覆盖 SQL注入/XSS/越权/JWT攻击/参数污染
+      # 全局 Pre-request 自动注入 token（NO_AUTH 项除外）
+      # ──────────────────────────────────────────────────────
+      - name: Run 05-Security module
+        id: security
+        continue-on-error: true
+        run: |
+          newman run postman/collections/05-安全测试模块.postman_collection.json \
+            -e postman/environments/dev.environment.json \
+            -r cli,json,html \
+            --reporter-json-export newman/reports/security_report.json \
+            --reporter-html-export newman/reports/security_report.html
+
+      # ── 上传产物 ─────────────────────────────────────────
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-reports
+          path: newman/reports/
+          retention-days: 30
+
+      # ── 结果汇总 ─────────────────────────────────────────
+      - name: Summary
+        if: always()
+        run: |
+          echo "## API Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Module | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.register.outcome }}" = "success" ]; then
+            echo "| 00-Register | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 00-Register | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.login.outcome }}" = "success" ]; then
+            echo "| 01-Login (DDT) | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 01-Login (DDT) | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.order.outcome }}" = "success" ]; then
+            echo "| 02-Order (DDT) | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 02-Order (DDT) | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.payment.outcome }}" = "success" ]; then
+            echo "| 04-Payment | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 04-Payment | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.e2e.outcome }}" = "success" ]; then
+            echo "| 03-E2E | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 03-E2E | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.security.outcome }}" = "success" ]; then
+            echo "| 05-Security | :white_check_mark: PASS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 05-Security | :x: FAIL |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # ── TAPD 缺陷同步 ───────────────────────────────────
+      # 自动创建失败用例对应的 TAPD 缺陷，
+      # 并自动关闭已通过用例的历史缺陷。
+      # 需要 GitHub Secrets: TAPD_WORKSPACE_ID, TAPD_API_USER, TAPD_API_PASSWORD
+      # ──────────────────────────────────────────────────────
+      - name: Sync TAPD bugs
+        if: always()
+        env:
+          TAPD_WORKSPACE_ID: ${{ secrets.TAPD_WORKSPACE_ID }}
+          TAPD_API_USER: ${{ secrets.TAPD_API_USER }}
+          TAPD_API_PASSWORD: ${{ secrets.TAPD_API_PASSWORD }}
+        continue-on-error: true
+        run: node auto-create-bugs.js --reports-dir newman/reports
+
+      # ── 最终判定 ─────────────────────────────────────────
+      - name: Final gate
+        if: always()
+        run: |
+          FAIL=0
+          if [ "${{ steps.register.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "${{ steps.login.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "${{ steps.order.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "${{ steps.payment.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "${{ steps.e2e.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "${{ steps.security.outcome }}" != "success" ]; then FAIL=1; fi
+          if [ "$FAIL" = "1" ]; then
+            echo "One or more test modules failed. Check the Summary and Artifacts."
+            exit 1
+          fi
+          echo "All 6 modules passed!"

@@ -1,0 +1,64 @@
+{
+  "_comment": "==============================================================",
+  "_comment_detail_1": "TAPD 缺陷管理系统集成配置",
+  "_comment_detail_2": "复制本文件为 tapd-config.json 并填写真实值",
+  "_comment_detail_3": "⚠ tapd-config.json 包含敏感凭证，请勿提交到 Git",
+  "_comment": "==============================================================",
+
+  "workspace_id": 12345678,
+
+  "api_user": "your-api-user@company.com",
+
+  "api_password": "your-api-password-or-token",
+
+  "close_status": "resolved",
+
+  "bug_title_prefix": "[AutoTest]",
+
+  "_field_help": {
+    "workspace_id": {
+      "type": "number",
+      "how_to_get": "登录 TAPD → 进入目标项目 → 浏览器地址栏 URL 中 /workspaces/ 后面的数字即为 workspace_id。",
+      "example_url": "https://www.tapd.cn/12345678/workspaces/workspace_information",
+      "example_id": 12345678
+    },
+    "api_user": {
+      "type": "string",
+      "how_to_get": "TAPD 开放平台 → 个人设置 → API 账号。通常为公司邮箱。",
+      "example": "your-api-user@company.com",
+      "note": "部分 TAPD 版本使用「API 账号 + API 密码」方式认证，与登录密码不同。"
+    },
+    "api_password": {
+      "type": "string",
+      "how_to_get": "TAPD 开放平台 → 个人设置 → 生成 API 密码。",
+      "example": "ABCD-EFGH-IJKL-MNOP",
+      "note": "这不是你的 TAPD 登录密码。需要在 TAPD 后台单独申请 API 密码。"
+    },
+    "close_status": {
+      "type": "string",
+      "default": "resolved",
+      "description": "自动化测试通过后，将对应历史缺陷更新为此状态。TAPD 状态值通常为: new / in_progress / resolved / closed / rejected。",
+      "note": "请根据你的 TAPD 项目工作流确认存在的状态值，否则 API 会返回错误。"
+    },
+    "bug_title_prefix": {
+      "type": "string",
+      "default": "[AutoTest]",
+      "description": "脚本创建的缺陷标题前缀，同时也用于匹配已通过用例的历史缺陷。修改此项会影响已创建缺陷的识别。"
+    },
+    "auth_method": {
+      "description": "本项目使用 HTTP Basic Auth（base64(api_user:api_password)）方式调用 TAPD API。",
+      "api_doc": "https://www.tapd.cn/help/view#1120003271001000093"
+    },
+    "api_base_url": {
+      "description": "TAPD 开放 API 基础地址。",
+      "internal": "https://api.tapd.cn（中国大陆）",
+      "external": "https://api.tapd.cn（国际版请确认官方文档）"
+    }
+  },
+
+  "_usage": {
+    "step_1": "cp tapd-config.example.json tapd-config.json",
+    "step_2": "编辑 tapd-config.json，填写 workspace_id、api_user、api_password",
+    "step_3": "运行 run-full-test.bat 或 node auto-create-bugs.js"
+  }
+}

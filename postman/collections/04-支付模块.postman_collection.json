@@ -1,0 +1,655 @@
+{
+  "info": {
+    "name": "04-支付模块",
+    "description": "订单支付接口测试集合。覆盖正向支付、参数校验、金额校验、状态校验、越权校验、超时场景。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "order-api-test-project"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pay_order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pay_amount",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "TC-PAY-001 [正向] 支付成功",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var orderReq = {",
+              "  url: pm.variables.get('base_url') + '/orders',",
+              "  method: 'POST',",
+              "  header: {",
+              "    'Content-Type': 'application/json',",
+              "    'Authorization': 'Bearer ' + pm.environment.get('auth_token')",
+              "  },",
+              "  body: {",
+              "    mode: 'raw',",
+              "    raw: JSON.stringify({ productId: 5001, quantity: 1, addressId: 100, remark: '支付测试订单' })",
+              "  }",
+              "};",
+              "pm.sendRequest(orderReq, function(err, res) {",
+              "  if (!err && res.json().code === 0) {",
+              "    var d = res.json().data;",
+              "    pm.environment.set('pay_order_id', d.orderId);",
+              "    pm.environment.set('pay_amount', d.totalAmount);",
+              "  }",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 0\", function () {",
+              "    pm.expect(jsonData.code).to.eql(0);",
+              "});",
+              "",
+              "pm.test(\"data.status equals PAID\", function () {",
+              "    pm.expect(jsonData.data.status).to.eql(\"PAID\");",
+              "});",
+              "",
+              "pm.test(\"data.orderId equals request\", function () {",
+              "    pm.expect(jsonData.data.orderId).to.eql(pm.environment.get('pay_order_id'));",
+              "});",
+              "",
+              "pm.test(\"data.transactionId starts with TXN\", function () {",
+              "    pm.expect(jsonData.data.transactionId).to.be.a(\"string\");",
+              "    pm.expect(jsonData.data.transactionId).to.match(/^TXN/);",
+              "});",
+              "",
+              "pm.test(\"data.paidAt is valid ISO 8601\", function () {",
+              "    pm.expect(jsonData.data.paidAt).to.be.a(\"string\");",
+              "    pm.expect(Date.parse(jsonData.data.paidAt)).to.not.eql(NaN);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": {{pay_order_id}},\n  \"amount\": {{pay_amount}},\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-002 [反向] 缺少 orderId",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1001 (param validation error)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1001);",
+              "});",
+              "",
+              "pm.test(\"message mentions orderId\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message.toLowerCase()).to.include(\"orderid\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-003 [反向] 缺少 amount",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1001 (param validation error)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1001);",
+              "});",
+              "",
+              "pm.test(\"message mentions amount\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message.toLowerCase()).to.include(\"amount\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 99999,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-004 [反向] 金额与实际订单不符",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var orderReq = {",
+              "  url: pm.variables.get('base_url') + '/orders',",
+              "  method: 'POST',",
+              "  header: {",
+              "    'Content-Type': 'application/json',",
+              "    'Authorization': 'Bearer ' + pm.environment.get('auth_token')",
+              "  },",
+              "  body: {",
+              "    mode: 'raw',",
+              "    raw: JSON.stringify({ productId: 5002, quantity: 1, addressId: 100 })",
+              "  }",
+              "};",
+              "pm.sendRequest(orderReq, function(err, res) {",
+              "  if (!err && res.json().code === 0) {",
+              "    var d = res.json().data;",
+              "    pm.environment.set('pay_order_id', d.orderId);",
+              "  }",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1005 (amount mismatch)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1005);",
+              "});",
+              "",
+              "pm.test(\"message mentions amount mismatch\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"金额\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": {{pay_order_id}},\n  \"amount\": 0.01,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-005 [反向] 对已支付订单重复支付",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 4003 (already paid)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(4003);",
+              "});",
+              "",
+              "pm.test(\"message mentions already paid\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"已支付\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 20012,\n  \"amount\": 149.5,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-006 [反向] 跨用户支付订单",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var orderReq = {",
+              "  url: pm.variables.get('base_url') + '/orders',",
+              "  method: 'POST',",
+              "  header: {",
+              "    'Content-Type': 'application/json',",
+              "    'Authorization': 'Bearer ' + pm.environment.get('auth_token')",
+              "  },",
+              "  body: {",
+              "    mode: 'raw',",
+              "    raw: JSON.stringify({ productId: 5001, quantity: 1, addressId: 100, remark: '越权测试订单' })",
+              "  }",
+              "};",
+              "pm.sendRequest(orderReq, function(err, res) {",
+              "  if (!err && res.json().code === 0) {",
+              "    var d = res.json().data;",
+              "    pm.environment.set('pay_order_id', d.orderId);",
+              "    pm.environment.set('pay_amount', d.totalAmount);",
+              "  }",
+              "});",
+              "pm.sendRequest({",
+              "  url: pm.variables.get('base_url') + '/login',",
+              "  method: 'POST',",
+              "  header: { 'Content-Type': 'application/json' },",
+              "  body: { mode: 'raw', raw: JSON.stringify({ username: 'alice', password: 'Alice@123' }) }",
+              "}, function(err, res) {",
+              "  if (!err) {",
+              "    var tok = res.json().data.token;",
+              "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + tok });",
+              "  }",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 3002 (unauthorized)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(3002);",
+              "});",
+              "",
+              "pm.test(\"message mentions unauthorized\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"无权\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": {{pay_order_id}},\n  \"amount\": {{pay_amount}},\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-007 [反向] 支付已取消的订单",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 4003 (status not allowed)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(4003);",
+              "});",
+              "",
+              "pm.test(\"message mentions status not allowed\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"不允许\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 20011,\n  \"amount\": 149.5,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-008 [反向] 支付超时订单（30分钟）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 4004 (timeout)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(4004);",
+              "});",
+              "",
+              "pm.test(\"message mentions timeout\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"超时\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 20015,\n  \"amount\": 399,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-PAY-009 [反向] 使用过期 token 支付",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.sendRequest({",
+              "  url: pm.variables.get('base_url') + '/test/expired-token',",
+              "  method: 'GET'",
+              "}, function(err, res) {",
+              "  if (!err) {",
+              "    var tok = res.json().data.token;",
+              "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + tok });",
+              "  }",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 401\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 2002 (token expired)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(2002);",
+              "});",
+              "",
+              "pm.test(\"message mentions expired token\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"过期\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 20010,\n  \"amount\": 798,\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/payment",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payment"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "var NO_AUTH = [\"TC-PAY-006\", \"TC-PAY-009\"];",
+          "var nm = pm.info.requestName;",
+          "if (!NO_AUTH.some(function(n) { return nm.indexOf(n) === 0; })) {",
+          "  var tok = pm.environment.get(\"auth_token\");",
+          "  if (tok) pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + tok });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

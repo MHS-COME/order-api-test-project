@@ -1,0 +1,7 @@
+input_product_id,input_quantity,input_address_id,input_remark,expected_status,expected_code,expected_status_field
+5001,2,100,请尽快发货,201,0,PENDING
+5001,1,100,,201,0,PENDING
+,1,100,,400,1001,productId
+5001,0,100,,400,1001,quantity
+5001,1000,100,,400,1001,quantity
+5002,999,100,,201,0,PENDING

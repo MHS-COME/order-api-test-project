@@ -1,0 +1,363 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "testuser",
+      "password": "Test@123456",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoidGVzdHVzZXIifQ.mock-signature",
+      "refreshToken": ""
+    },
+    {
+      "id": 2,
+      "username": "abcd",
+      "password": "T@1234",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInVzZXJuYW1lIjoiYWJjZCJ9.mock-signature-2",
+      "refreshToken": ""
+    },
+    {
+      "id": 3,
+      "username": "abcdefghijklmnopqrstuvwxyz012345",
+      "password": "Test@123456",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInVzZXJuYW1lIjoiYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDUifQ.mock-signature-3",
+      "refreshToken": ""
+    },
+    {
+      "id": 4,
+      "username": "pwdtest",
+      "password": "T@1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicHdkdGVzdCJ9.mock-signature-4",
+      "refreshToken": ""
+    },
+    {
+      "id": 5,
+      "username": "alice",
+      "password": "Alice@123",
+      "token": "alice-token",
+      "email": "alice@example.com",
+      "refreshToken": ""
+    },
+    {
+      "id": 6,
+      "username": "bob123",
+      "password": "Bob@123",
+      "token": "bob-token",
+      "email": "bob@example.com",
+      "refreshToken": ""
+    }
+  ],
+  "orders": [
+    {
+      "id": 10001,
+      "orderId": 10001,
+      "userId": 1,
+      "orderNo": "ORD202606030001",
+      "productId": 5001,
+      "productName": "无线蓝牙耳机",
+      "quantity": 2,
+      "totalAmount": 299,
+      "status": "PENDING",
+      "addressId": 100,
+      "remark": "请尽快发货",
+      "items": [
+        {
+          "productId": 5001,
+          "productName": "无线蓝牙耳机",
+          "price": 149.5,
+          "quantity": 2,
+          "subtotal": 299
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "深圳市",
+        "detail": "南山区科技园路 1 号"
+      },
+      "createdAt": "2026-06-03T10:30:00+08:00",
+      "updatedAt": "2026-06-03T10:30:00+08:00"
+    },
+    {
+      "id": 10002,
+      "orderId": 10002,
+      "userId": 1,
+      "orderNo": "ORD202606030002",
+      "productId": 5002,
+      "productName": "机械键盘",
+      "quantity": 1,
+      "totalAmount": 399,
+      "status": "SHIPPED",
+      "addressId": 100,
+      "remark": "",
+      "items": [
+        {
+          "productId": 5002,
+          "productName": "机械键盘",
+          "price": 399,
+          "quantity": 1,
+          "subtotal": 399
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "深圳市",
+        "detail": "南山区科技园路 1 号"
+      },
+      "createdAt": "2026-06-02T15:00:00+08:00",
+      "updatedAt": "2026-06-03T08:00:00+08:00"
+    },
+    {
+      "id": 10003,
+      "orderId": 10003,
+      "userId": 1,
+      "orderNo": "ORD202606030003",
+      "productId": 5003,
+      "productName": "USB-C 数据线",
+      "quantity": 3,
+      "totalAmount": 89.7,
+      "status": "CANCELLED",
+      "addressId": 101,
+      "remark": "",
+      "items": [
+        {
+          "productId": 5003,
+          "productName": "USB-C 数据线",
+          "price": 29.9,
+          "quantity": 3,
+          "subtotal": 89.7
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "广州市",
+        "detail": "天河区体育西路 88 号"
+      },
+      "createdAt": "2026-06-01T09:15:00+08:00",
+      "updatedAt": "2026-06-01T14:20:00+08:00",
+      "cancelledAt": "2026-06-01T14:20:00+08:00"
+    },
+    {
+      "id": 20001,
+      "orderId": 20001,
+      "userId": 2,
+      "orderNo": "ORD202606030004",
+      "productId": 5001,
+      "productName": "无线蓝牙耳机",
+      "quantity": 1,
+      "totalAmount": 149.5,
+      "status": "PENDING",
+      "addressId": 200,
+      "remark": "",
+      "items": [
+        {
+          "productId": 5001,
+          "productName": "无线蓝牙耳机",
+          "price": 149.5,
+          "quantity": 1,
+          "subtotal": 149.5
+        }
+      ],
+      "address": {
+        "recipient": "李四",
+        "phone": "139****1234",
+        "province": "北京市",
+        "city": "朝阳区",
+        "detail": "望京 SOHO T1 12 层"
+      },
+      "createdAt": "2026-06-03T09:00:00+08:00",
+      "updatedAt": "2026-06-03T09:00:00+08:00"
+    },
+    {
+      "id": 20010,
+      "orderId": 20010,
+      "userId": 1,
+      "orderNo": "ORD202606090005",
+      "productId": 5002,
+      "productName": "机械键盘",
+      "quantity": 2,
+      "totalAmount": 798,
+      "status": "PENDING",
+      "addressId": 100,
+      "remark": "testuser 待支付订单",
+      "items": [
+        {
+          "productId": 5002,
+          "productName": "机械键盘",
+          "price": 399,
+          "quantity": 2,
+          "subtotal": 798
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "深圳市",
+        "detail": "南山区科技园路 1 号"
+      },
+      "createdAt": "2026-06-09T10:00:00+08:00",
+      "updatedAt": "2026-06-09T10:00:00+08:00"
+    },
+    {
+      "id": 20011,
+      "orderId": 20011,
+      "userId": 1,
+      "orderNo": "ORD202606090006",
+      "productId": 5001,
+      "productName": "无线蓝牙耳机",
+      "quantity": 1,
+      "totalAmount": 149.5,
+      "status": "CANCELLED",
+      "addressId": 101,
+      "remark": "testuser 已取消订单",
+      "items": [
+        {
+          "productId": 5001,
+          "productName": "无线蓝牙耳机",
+          "price": 149.5,
+          "quantity": 1,
+          "subtotal": 149.5
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "广州市",
+        "detail": "天河区体育西路 88 号"
+      },
+      "createdAt": "2026-06-09T11:00:00+08:00",
+      "updatedAt": "2026-06-09T11:30:00+08:00",
+      "cancelledAt": "2026-06-09T11:30:00+08:00"
+    },
+    {
+      "id": 20012,
+      "orderId": 20012,
+      "userId": 1,
+      "orderNo": "ORD202606090007",
+      "productId": 5003,
+      "productName": "USB-C 数据线",
+      "quantity": 5,
+      "totalAmount": 149.5,
+      "status": "PAID",
+      "addressId": 100,
+      "remark": "testuser 已支付订单",
+      "items": [
+        {
+          "productId": 5003,
+          "productName": "USB-C 数据线",
+          "price": 29.9,
+          "quantity": 5,
+          "subtotal": 149.5
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "深圳市",
+        "detail": "南山区科技园路 1 号"
+      },
+      "createdAt": "2026-06-09T12:00:00+08:00",
+      "updatedAt": "2026-06-09T12:05:00+08:00",
+      "paidAt": "2026-06-09T12:05:00+08:00"
+    },
+    {
+      "id": 20013,
+      "orderId": 20013,
+      "userId": 5,
+      "orderNo": "ORD202606090008",
+      "productId": 5001,
+      "productName": "无线蓝牙耳机",
+      "quantity": 3,
+      "totalAmount": 448.5,
+      "status": "PENDING",
+      "addressId": 300,
+      "remark": "alice 的订单",
+      "items": [
+        {
+          "productId": 5001,
+          "productName": "无线蓝牙耳机",
+          "price": 149.5,
+          "quantity": 3,
+          "subtotal": 448.5
+        }
+      ],
+      "address": {
+        "recipient": "王五",
+        "phone": "137****9012",
+        "province": "上海市",
+        "city": "浦东新区",
+        "detail": "张江高科技园区 2 号楼"
+      },
+      "createdAt": "2026-06-09T13:00:00+08:00",
+      "updatedAt": "2026-06-09T13:00:00+08:00"
+    },
+    {
+      "id": 20014,
+      "orderId": 20014,
+      "userId": 6,
+      "orderNo": "ORD202606090009",
+      "productId": 5002,
+      "productName": "机械键盘",
+      "quantity": 1,
+      "totalAmount": 399,
+      "status": "PENDING",
+      "addressId": 400,
+      "remark": "bob123 的订单",
+      "items": [
+        {
+          "productId": 5002,
+          "productName": "机械键盘",
+          "price": 399,
+          "quantity": 1,
+          "subtotal": 399
+        }
+      ],
+      "address": {
+        "recipient": "赵六",
+        "phone": "136****3456",
+        "province": "浙江省",
+        "city": "杭州市",
+        "detail": "余杭区文一西路 969 号"
+      },
+      "createdAt": "2026-06-09T14:00:00+08:00",
+      "updatedAt": "2026-06-09T14:00:00+08:00"
+    },
+    {
+      "id": 20015,
+      "orderId": 20015,
+      "userId": 1,
+      "orderNo": "ORD202601010001",
+      "productId": 5002,
+      "productName": "机械键盘",
+      "quantity": 1,
+      "totalAmount": 399,
+      "status": "PENDING",
+      "addressId": 100,
+      "remark": "超时订单-测试用",
+      "items": [
+        {
+          "productId": 5002,
+          "productName": "机械键盘",
+          "price": 399,
+          "quantity": 1,
+          "subtotal": 399
+        }
+      ],
+      "address": {
+        "recipient": "张三",
+        "phone": "138****5678",
+        "province": "广东省",
+        "city": "深圳市",
+        "detail": "南山区科技园路 1 号"
+      },
+      "createdAt": "2026-01-01T00:00:00+08:00",
+      "updatedAt": "2026-01-01T00:00:00+08:00"
+    }
+  ]
+}

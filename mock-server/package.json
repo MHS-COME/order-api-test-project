@@ -1,0 +1,13 @@
+{
+  "name": "order-api-test-project",
+  "version": "1.0.0",
+  "description": "OrderAPITest Mock Server based on json-server",
+  "scripts": {
+    "mock": "node server.js",
+    "test": "newman run postman/order_api_collection.json -e postman/dev.environment.json -r html,cli --reporter-html-export newman/report.html"
+  },
+  "dependencies": {
+    "json-server": "^0.17.4",
+    "jsonwebtoken": "^9.0.0"
+  }
+}

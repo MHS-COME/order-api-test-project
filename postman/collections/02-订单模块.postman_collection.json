@@ -1,0 +1,1834 @@
+{
+  "info": {
+    "name": "02-订单模块",
+    "description": "订单管理接口测试集合。覆盖创建订单(POST /orders)、查询订单(GET /orders/:id)、取消订单(PUT /orders/:id/cancel)的完整生命周期。\n\n前置条件: 环境变量中需设置 auth_token（通过登录接口获取）。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "order-api-test-project"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "5001",
+      "type": "string"
+    },
+    {
+      "key": "address_id",
+      "value": "100",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "02-订单管理",
+      "description": "订单 CRUD 接口测试：创建订单、查询订单详情、取消订单。",
+      "item": [
+        {
+          "name": "02a-创建订单 POST /orders",
+          "description": "创建订单接口的正向与异常测试用例。含数据驱动模板(TC-ORDER-DDT)及独立用例(TC-ORDER-001~013)。",
+          "item": [
+            {
+              "name": "TC-ORDER-DDT [数据驱动] 创建订单数据驱动测试",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// ========================================",
+                      "// 数据驱动 Pre-request: 从 CSV 动态构建请求体",
+                      "// 避免空值导致无效 JSON (e.g. \"productId\": )",
+                      "// ========================================",
+                      "",
+                      "var pid = pm.iterationData.get(\"input_product_id\");",
+                      "var qty = pm.iterationData.get(\"input_quantity\");",
+                      "var addr = pm.iterationData.get(\"input_address_id\");",
+                      "var remark = pm.iterationData.get(\"input_remark\");",
+                      "",
+                      "// 未通过 CSV 运行时回退到环境变量",
+                      "var isDataDriven = pid !== undefined && pid !== null;",
+                      "if (!isDataDriven) {",
+                      "    pid = pm.environment.get(\"input_product_id\") || \"5001\";",
+                      "    qty = \"2\";",
+                      "    addr = pm.environment.get(\"input_address_id\") || \"100\";",
+                      "}",
+                      "",
+                      "var body = {};",
+                      "if (pid !== undefined && pid !== null && pid !== \"\") body.productId = parseInt(pid);",
+                      "if (qty !== undefined && qty !== null && qty !== \"\") body.quantity = parseInt(qty);",
+                      "if (addr !== undefined && addr !== null && addr !== \"\") body.addressId = parseInt(addr);",
+                      "if (remark !== undefined && remark !== null && remark !== \"\") body.remark = remark;",
+                      "",
+                      "pm.request.body.update({",
+                      "    mode: \"raw\",",
+                      "    raw: JSON.stringify(body)",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// ========================================",
+                      "// 数据驱动测试脚本 — 从 CSV 读取期望值",
+                      "// Newman 运行时: pm.iterationData 提供 CSV 行数据",
+                      "// Postman 手动运行时: 回退到默认正向断言",
+                      "// ========================================",
+                      "",
+                      "var expectedStatus = pm.iterationData.get(\"expected_status\");",
+                      "var expectedCode = pm.iterationData.get(\"expected_code\");",
+                      "var expectedStatusField = pm.iterationData.get(\"expected_status_field\");",
+                      "",
+                      "var isDataDriven = expectedStatus !== undefined && expectedStatus !== null && expectedStatus !== \"\";",
+                      "",
+                      "if (!isDataDriven) {",
+                      "    expectedStatus = 201;",
+                      "    expectedCode = 0;",
+                      "    expectedStatusField = \"PENDING\";",
+                      "}",
+                      "",
+                      "expectedStatus = parseInt(expectedStatus);",
+                      "expectedCode = parseInt(expectedCode);",
+                      "",
+                      "// ---- 通用断言 ----",
+                      "pm.test(\"[DDT] Status code is \" + expectedStatus, function () {",
+                      "    pm.response.to.have.status(expectedStatus);",
+                      "});",
+                      "",
+                      "pm.test(\"[DDT] Response time < 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "pm.test(\"[DDT] code equals \" + expectedCode, function () {",
+                      "    pm.expect(jsonData.code).to.eql(expectedCode);",
+                      "});",
+                      "",
+                      "// ---- 仅成功时做订单字段断言 ----",
+                      "if (expectedCode === 0) {",
+                      "    pm.test(\"[DDT] data.orderId is a positive number\", function () {",
+                      "        pm.expect(jsonData.data).to.have.property(\"orderId\");",
+                      "        pm.expect(jsonData.data.orderId).to.be.a(\"number\").and.above(0);",
+                      "        pm.environment.set(\"order_id\", jsonData.data.orderId);",
+                      "    });",
+                      "",
+                      "    pm.test(\"[DDT] data.orderNo starts with ORD\", function () {",
+                      "        pm.expect(jsonData.data.orderNo).to.be.a(\"string\");",
+                      "        pm.expect(jsonData.data.orderNo).to.match(/^ORD/);",
+                      "    });",
+                      "",
+                      "    pm.test(\"[DDT] data.status equals \" + expectedStatusField, function () {",
+                      "        pm.expect(jsonData.data.status).to.eql(expectedStatusField);",
+                      "    });",
+                      "",
+                      "    pm.test(\"[DDT] data.totalAmount is a positive number\", function () {",
+                      "        pm.expect(jsonData.data.totalAmount).to.be.a(\"number\").and.above(0);",
+                      "    });",
+                      "",
+                      "    pm.test(\"[DDT] data.productName is a non-empty string\", function () {",
+                      "        pm.expect(jsonData.data.productName).to.be.a(\"string\").and.not.empty;",
+                      "    });",
+                      "",
+                      "    pm.test(\"[DDT] data.createdAt is valid ISO 8601\", function () {",
+                      "        pm.expect(jsonData.data.createdAt).to.be.a(\"string\");",
+                      "        pm.expect(Date.parse(jsonData.data.createdAt)).to.not.eql(NaN);",
+                      "    });",
+                      "} else {",
+                      "    if (expectedStatusField) {",
+                      "        pm.test(\"[DDT] message contains '\" + expectedStatusField + \"'\", function () {",
+                      "            pm.expect(jsonData.message).to.be.a(\"string\");",
+                      "            pm.expect(jsonData.message.toLowerCase()).to.include(expectedStatusField.toLowerCase());",
+                      "        });",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-001 [正向] 全部字段创建订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.orderId is a positive number\", function () {",
+                      "    pm.expect(jsonData.data).to.have.property(\"orderId\");",
+                      "    pm.expect(jsonData.data.orderId).to.be.a(\"number\").and.above(0);",
+                      "    pm.environment.set(\"order_id\", jsonData.data.orderId);",
+                      "});",
+                      "pm.test(\"data.orderNo starts with ORD\", function () {",
+                      "    pm.expect(jsonData.data.orderNo).to.be.a(\"string\");",
+                      "    pm.expect(jsonData.data.orderNo).to.match(/^ORD/);",
+                      "});",
+                      "pm.test(\"data.status equals PENDING\", function () {",
+                      "    pm.expect(jsonData.data.status).to.eql(\"PENDING\");",
+                      "});",
+                      "pm.test(\"data.totalAmount is a positive number\", function () {",
+                      "    pm.expect(jsonData.data.totalAmount).to.be.a(\"number\").and.above(0);",
+                      "});",
+                      "pm.test(\"data.productId equals request\", function () {",
+                      "    pm.expect(jsonData.data.productId).to.eql(5001);",
+                      "});",
+                      "pm.test(\"data.quantity equals request\", function () {",
+                      "    pm.expect(jsonData.data.quantity).to.eql(2);",
+                      "});",
+                      "pm.test(\"data.productName is a non-empty string\", function () {",
+                      "    pm.expect(jsonData.data.productName).to.be.a(\"string\").and.not.empty;",
+                      "});",
+                      "pm.test(\"data.createdAt is valid ISO 8601\", function () {",
+                      "    pm.expect(jsonData.data.createdAt).to.be.a(\"string\");",
+                      "    pm.expect(Date.parse(jsonData.data.createdAt)).to.not.eql(NaN);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 2,\n  \"addressId\": {{address_id}},\n  \"remark\": \"请尽快发货\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-002 [正向] 仅必填字段创建订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.status equals PENDING\", function () {",
+                      "    pm.expect(jsonData.data.status).to.eql(\"PENDING\");",
+                      "});",
+                      "pm.test(\"remark is null or absent (optional field omitted)\", function () {",
+                      "    var hasRemark = jsonData.data.hasOwnProperty(\"remark\") && jsonData.data.remark !== null;",
+                      "    pm.expect(hasRemark).to.be.false;",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-003 [正向] quantity 边界值-最小1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.quantity equals 1\", function () {",
+                      "    pm.expect(jsonData.data.quantity).to.eql(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-004 [正向] quantity 边界值-最大999",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.quantity equals 999\", function () {",
+                      "    pm.expect(jsonData.data.quantity).to.eql(999);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": 5002,\n  \"quantity\": 999,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-005 [正向] remark 边界值-最长200字符",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(pm.response.json().code).to.eql(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}},\n  \"remark\": \"A123456789B123456789C123456789D123456789E123456789F123456789G123456789H123456789I123456789J123456789K123456789L123456789M123456789N123456789O123456789P123456789Q123456789R123456789S123456789T123456789\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-006 [反向] 未携带 Authorization 头",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 401\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 2001 (no auth token)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(2001);",
+                      "});",
+                      "pm.test(\"message mentions missing token\", function () {",
+                      "    pm.expect(jsonData.message).to.be.a(\"string\").and.not.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-007 [反向] Token 已过期",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "  url: pm.variables.get('base_url') + '/test/expired-token',",
+                      "  method: 'GET'",
+                      "}, function(err, res) {",
+                      "  if (!err) {",
+                      "    var tok = res.json().data.token;",
+                      "    pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + tok });",
+                      "  }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 401\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 2002 (token expired)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(2002);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-008 [反向] Token 被篡改",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.headers.add({ key: \"Authorization\", value: \"Bearer this.is.a.tampered.token.value\" });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 401\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 2001 (invalid token)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(2001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-009 [反向] 缺少必填字段 productId",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(1001);",
+                      "});",
+                      "pm.test(\"message contains 'productId'\", function () {",
+                      "    pm.expect(jsonData.message.toLowerCase()).to.include(\"productid\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-010 [反向] productId 为 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(pm.response.json().code).to.eql(1001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": 0,\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-011 [反向] productId 为负数",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(pm.response.json().code).to.eql(1001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": -1,\n  \"quantity\": 1,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-012 [反向] quantity 为 0（无效下边界）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(1001);",
+                      "});",
+                      "pm.test(\"message contains 'quantity'\", function () {",
+                      "    pm.expect(jsonData.message.toLowerCase()).to.include(\"quantity\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 0,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-ORDER-013 [反向] quantity 为 1000（无效上边界）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(1001);",
+                      "});",
+                      "pm.test(\"message contains 'quantity'\", function () {",
+                      "    pm.expect(jsonData.message.toLowerCase()).to.include(\"quantity\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 1000,\n  \"addressId\": {{address_id}}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "02b-查询订单 GET /orders/:id",
+          "description": "查询订单详情接口的正向与异常测试用例。",
+          "item": [
+            {
+              "name": "TC-GET-001 [正向] 查询本人存在的订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.orderId matches request\", function () {",
+                      "    var reqId = pm.variables.get(\"order_id\");",
+                      "    if (reqId) pm.expect(jsonData.data.orderId).to.eql(Number(reqId));",
+                      "});",
+                      "pm.test(\"data.orderNo is a string starting with ORD\", function () {",
+                      "    pm.expect(jsonData.data.orderNo).to.match(/^ORD/);",
+                      "});",
+                      "pm.test(\"data.status is a string\", function () {",
+                      "    pm.expect(jsonData.data.status).to.be.a(\"string\");",
+                      "});",
+                      "pm.test(\"data.totalAmount is a number\", function () {",
+                      "    pm.expect(jsonData.data.totalAmount).to.be.a(\"number\");",
+                      "});",
+                      "pm.test(\"data.items is a non-empty array\", function () {",
+                      "    pm.expect(jsonData.data.items).to.be.an(\"array\").and.not.empty;",
+                      "});",
+                      "pm.test(\"data.items[0] has required fields\", function () {",
+                      "    var item = jsonData.data.items[0];",
+                      "    pm.expect(item).to.have.property(\"productId\");",
+                      "    pm.expect(item).to.have.property(\"productName\");",
+                      "    pm.expect(item).to.have.property(\"price\");",
+                      "    pm.expect(item).to.have.property(\"quantity\");",
+                      "    pm.expect(item).to.have.property(\"subtotal\");",
+                      "});",
+                      "pm.test(\"data.address is an object with recipient\", function () {",
+                      "    pm.expect(jsonData.data.address).to.be.an(\"object\");",
+                      "    pm.expect(jsonData.data.address).to.have.property(\"recipient\");",
+                      "    pm.expect(jsonData.data.address).to.have.property(\"phone\");",
+                      "});",
+                      "pm.test(\"data.createdAt and updatedAt are valid ISO 8601\", function () {",
+                      "    pm.expect(Date.parse(jsonData.data.createdAt)).to.not.eql(NaN);",
+                      "    pm.expect(Date.parse(jsonData.data.updatedAt)).to.not.eql(NaN);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-002 [正向] 查询包含多件商品的订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.items is an array\", function () {",
+                      "    pm.expect(jsonData.data.items).to.be.an(\"array\");",
+                      "});",
+                      "pm.test(\"each item has subtotal = price * quantity\", function () {",
+                      "    jsonData.data.items.forEach(function(item) {",
+                      "        pm.expect(item.subtotal).to.eql(item.price * item.quantity);",
+                      "    });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-003 [正向] 查询已取消订单（状态为 CANCELLED — 固定ID=10003）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"data.status equals CANCELLED\", function () {",
+                      "    pm.expect(jsonData.data.status).to.eql(\"CANCELLED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/10003",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "10003"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-004 [反向] 订单 ID 不存在",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 404\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 3001 (order not found)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(3001);",
+                      "});",
+                      "pm.test(\"message indicates order not found\", function () {",
+                      "    pm.expect(jsonData.message).to.be.a(\"string\").and.not.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/99999999",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "99999999"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-005 [反向] 查询非本人订单（越权）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 403\", function () {",
+                      "    pm.response.to.have.status(403);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 3002 (forbidden)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(3002);",
+                      "});",
+                      "pm.test(\"response body does NOT contain order detail data\", function () {",
+                      "    pm.expect(jsonData).to.not.have.property(\"data\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/20001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "20001"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-006 [反向] 订单 ID 为非数字字符串",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(1001);",
+                      "});",
+                      "pm.test(\"message contains 'id'\", function () {",
+                      "    pm.expect(jsonData.message.toLowerCase()).to.include(\"id\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/abc",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "abc"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-007 [反向] 订单 ID 为 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(pm.response.json().code).to.eql(1001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "0"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-GET-008 [反向] 未携带 Authorization 头",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 401\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 2001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(2001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/orders/10001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "10001"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "02c-取消订单 PUT /orders/:id/cancel",
+          "description": "取消订单接口的正向与异常测试用例。",
+          "item": [
+            {
+              "name": "TC-CANCEL-001 [正向] 取消 PENDING 状态的本人订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 0\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(0);",
+                      "});",
+                      "pm.test(\"data.status equals CANCELLED\", function () {",
+                      "    pm.expect(jsonData.data.status).to.eql(\"CANCELLED\");",
+                      "});",
+                      "pm.test(\"data.orderId matches request\", function () {",
+                      "    pm.expect(jsonData.data.orderId).to.be.a(\"number\");",
+                      "});",
+                      "pm.test(\"data.orderNo is a string starting with ORD\", function () {",
+                      "    pm.expect(jsonData.data.orderNo).to.match(/^ORD/);",
+                      "});",
+                      "pm.test(\"data.cancelledAt is valid ISO 8601\", function () {",
+                      "    pm.expect(Date.parse(jsonData.data.cancelledAt)).to.not.eql(NaN);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-002 [正向] 取消订单并附带取消原因",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var token = pm.environment.get(\"auth_token\");",
+                      "if (token) {",
+                      "    pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + token });",
+                      "}",
+                      "",
+                      "pm.sendRequest({",
+                      "    url: pm.environment.get(\"base_url\") + \"/orders\",",
+                      "    method: \"POST\",",
+                      "    header: {",
+                      "        \"Content-Type\": \"application/json\",",
+                      "        \"Authorization\": \"Bearer \" + pm.environment.get(\"auth_token\")",
+                      "    },",
+                      "    body: {",
+                      "        mode: \"raw\",",
+                      "        raw: JSON.stringify({ productId: 5001, quantity: 1, addressId: 100 })",
+                      "    }",
+                      "}, function (err, res) {",
+                      "    if (!err && res) {",
+                      "        var json = res.json();",
+                      "        if (json && json.data && json.data.id) {",
+                      "            pm.environment.set(\"order_id\", json.data.id);",
+                      "        }",
+                      "    }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"data.status equals CANCELLED\", function () {",
+                      "    pm.expect(jsonData.data.status).to.eql(\"CANCELLED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"不想要了\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-003 [正向] reason 边界值-最长200字符",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var token = pm.environment.get(\"auth_token\");",
+                      "if (token) {",
+                      "    pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + token });",
+                      "}",
+                      "",
+                      "pm.sendRequest({",
+                      "    url: pm.environment.get(\"base_url\") + \"/orders\",",
+                      "    method: \"POST\",",
+                      "    header: {",
+                      "        \"Content-Type\": \"application/json\",",
+                      "        \"Authorization\": \"Bearer \" + pm.environment.get(\"auth_token\")",
+                      "    },",
+                      "    body: {",
+                      "        mode: \"raw\",",
+                      "        raw: JSON.stringify({ productId: 5001, quantity: 1, addressId: 100 })",
+                      "    }",
+                      "}, function (err, res) {",
+                      "    if (!err && res) {",
+                      "        var json = res.json();",
+                      "        if (json && json.data && json.data.id) {",
+                      "            pm.environment.set(\"order_id\", json.data.id);",
+                      "        }",
+                      "    }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"data.status equals CANCELLED\", function () {",
+                      "    pm.expect(pm.response.json().data.status).to.eql(\"CANCELLED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"A123456789B123456789C123456789D123456789E123456789F123456789G123456789H123456789I123456789J123456789K123456789L123456789M123456789N123456789O123456789P123456789Q123456789R123456789S123456789T123456789\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-004 [正向] 验证取消后订单状态持久化",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var token = pm.environment.get(\"auth_token\");",
+                      "if (token) {",
+                      "    pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + token });",
+                      "}",
+                      "",
+                      "pm.sendRequest({",
+                      "    url: pm.environment.get(\"base_url\") + \"/orders\",",
+                      "    method: \"POST\",",
+                      "    header: {",
+                      "        \"Content-Type\": \"application/json\",",
+                      "        \"Authorization\": \"Bearer \" + pm.environment.get(\"auth_token\")",
+                      "    },",
+                      "    body: {",
+                      "        mode: \"raw\",",
+                      "        raw: JSON.stringify({ productId: 5001, quantity: 1, addressId: 100 })",
+                      "    }",
+                      "}, function (err, res) {",
+                      "    if (!err && res) {",
+                      "        var json = res.json();",
+                      "        if (json && json.data && json.data.id) {",
+                      "            pm.environment.set(\"order_id\", json.data.id);",
+                      "        }",
+                      "    }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"data.status equals CANCELLED\", function () {",
+                      "    pm.expect(pm.response.json().data.status).to.eql(\"CANCELLED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/{{order_id}}/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "{{order_id}}",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-005 [反向] 取消不存在的订单",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 404\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 3001 (order not found)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(3001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/99999999/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "99999999",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-006 [反向] 取消非本人订单（越权）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 403\", function () {",
+                      "    pm.response.to.have.status(403);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 3002 (forbidden)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(3002);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/20001/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "20001",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-007 [反向] 取消已发货订单（状态不允许）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 409\", function () {",
+                      "    pm.response.to.have.status(409);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 4001 (status conflict)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(4001);",
+                      "});",
+                      "pm.test(\"data.currentStatus equals SHIPPED\", function () {",
+                      "    pm.expect(jsonData.data.currentStatus).to.eql(\"SHIPPED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/10002/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "10002",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-008 [反向] 重复取消同一订单（幂等性）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 409\", function () {",
+                      "    pm.response.to.have.status(409);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 4002 (already cancelled)\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(4002);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/10003/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "10003",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-009 [反向] 订单 ID 为非数字",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "pm.test(\"code equals 1001\", function () {",
+                      "    pm.expect(pm.response.json().code).to.eql(1001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/abc/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "abc",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "TC-CANCEL-010 [反向] 未携带 Authorization 头",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code is 401\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});",
+                      "pm.test(\"Response time is below 2000ms\", function () {",
+                      "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                      "});",
+                      "var jsonData = pm.response.json();",
+                      "pm.test(\"code equals 2001\", function () {",
+                      "    pm.expect(jsonData.code).to.eql(2001);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/orders/10001/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "orders",
+                    "10001",
+                    "cancel"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "var NO_AUTH = [\"TC-ORDER-006\", \"TC-ORDER-007\", \"TC-ORDER-008\", \"TC-GET-008\", \"TC-CANCEL-010\"];",
+          "var nm = pm.info.requestName;",
+          "if (!NO_AUTH.some(function(n) { return nm.indexOf(n) === 0; })) {",
+          "  var tok = pm.environment.get(\"auth_token\");",
+          "  if (tok) pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + tok });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

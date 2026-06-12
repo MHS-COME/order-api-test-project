@@ -1,0 +1,59 @@
+{
+  "_": {
+    "postman_variable_scope": "environment",
+    "postman_exported_at": "2026-06-09T02:56:04.473Z",
+    "postman_exported_using": "Newman/6.2.2"
+  },
+  "id": "f054ec2b-dd10-4b59-88bf-48ad8c2b1f71",
+  "name": "OrderAPI-Dev",
+  "values": [
+    {
+      "type": "string",
+      "value": "http://localhost:3000",
+      "key": "base_url"
+    },
+    {
+      "type": "string",
+      "value": "testuser",
+      "key": "username"
+    },
+    {
+      "type": "string",
+      "value": "Test@123456",
+      "key": "password"
+    },
+    {
+      "type": "string",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoidGVzdHVzZXIifQ.mock-signature",
+      "key": "auth_token"
+    },
+    {
+      "type": "string",
+      "value": "",
+      "key": "order_id"
+    },
+    {
+      "type": "string",
+      "value": "5001",
+      "key": "product_id"
+    },
+    {
+      "type": "string",
+      "value": "100",
+      "key": "address_id"
+    },
+    {
+      "type": "string",
+      "value": "",
+      "key": "e2e_order_id"
+    },
+    {
+      "type": "string",
+      "value": "",
+      "key": "e2e_userId"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-06-09T02:57:35.950Z",
+  "_postman_exported_using": "Newman/6.2.2"
+}

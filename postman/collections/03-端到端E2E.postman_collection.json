@@ -1,0 +1,362 @@
+{
+  "info": {
+    "name": "03-端到端E2E",
+    "description": "全链路端到端测试集合。模拟真实用户流程: 登录 → 创建订单 → 查询订单 → 支付订单 → 验证已支付 → 取消已支付订单(预期409)。独立运行，不依赖外部 auth_token。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "order-api-test-project"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "testuser",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Test@123456",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "5001",
+      "type": "string"
+    },
+    {
+      "key": "address_id",
+      "value": "100",
+      "type": "string"
+    },
+    {
+      "key": "e2e_order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "e2e_userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "03-全链路E2E",
+      "description": "端到端全链路测试：登录 → 创建订单 → 查询订单 → 支付订单 → 验证已支付 → 取消已支付订单(预期409)。需按顺序执行（Collection Runner 中选择 Run in order + Keep variable values）。",
+      "item": [
+        {
+          "name": "E2E-01 用户登录获取Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Login returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] Extract auth_token\", function () {",
+                  "    pm.expect(jsonData.data.token).to.be.a(\"string\").and.not.empty;",
+                  "    pm.environment.set(\"auth_token\", jsonData.data.token);",
+                  "    pm.environment.set(\"e2e_userId\", jsonData.data.userId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "E2E-02 创建订单",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Create order returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] Extract order_id and verify PENDING\", function () {",
+                  "    pm.expect(jsonData.data.orderId).to.be.a(\"number\");",
+                  "    pm.expect(jsonData.data.status).to.eql(\"PENDING\");",
+                  "    pm.environment.set(\"e2e_order_id\", jsonData.data.orderId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{product_id}},\n  \"quantity\": 2,\n  \"addressId\": {{address_id}},\n  \"remark\": \"E2E 全链路测试订单\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "E2E-03 查询订单详情",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Get order returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] Order status is PENDING\", function () {",
+                  "    pm.expect(jsonData.data.status).to.eql(\"PENDING\");",
+                  "});",
+                  "pm.test(\"[E2E] Order has items, address, timestamps\", function () {",
+                  "    pm.expect(jsonData.data.items).to.be.an(\"array\").and.not.empty;",
+                  "    pm.expect(jsonData.data.address).to.be.an(\"object\");",
+                  "    pm.expect(Date.parse(jsonData.data.createdAt)).to.not.eql(NaN);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{e2e_order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{e2e_order_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "E2E-04 支付订单",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Pay order returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] Status changed to PAID\", function () {",
+                  "    pm.expect(jsonData.data.status).to.eql(\"PAID\");",
+                  "});",
+                  "pm.test(\"[E2E] transactionId starts with TXN\", function () {",
+                  "    pm.expect(jsonData.data.transactionId).to.be.a(\"string\");",
+                  "    pm.expect(jsonData.data.transactionId).to.match(/^TXN/);",
+                  "});",
+                  "pm.test(\"[E2E] paidAt is valid ISO 8601\", function () {",
+                  "    pm.expect(Date.parse(jsonData.data.paidAt)).to.not.eql(NaN);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{e2e_order_id}},\n  \"amount\": 299,\n  \"paymentMethod\": \"card\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "E2E-05 查询订单验证已支付",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Verify returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] Final status is PAID\", function () {",
+                  "    pm.expect(jsonData.data.status).to.eql(\"PAID\");",
+                  "});",
+                  "pm.test(\"[E2E] transactionId is present\", function () {",
+                  "    pm.expect(jsonData.data.transactionId).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "pm.test(\"[E2E] Complete lifecycle PASSED\", function () {",
+                  "    pm.expect(jsonData.code).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{e2e_order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{e2e_order_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "E2E-06 尝试取消已支付订单（预期失败）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"[E2E] Cancel PAID order returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"[E2E] Response time < 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"[E2E] code equals 4005 (PAID cannot cancel)\", function () {",
+                  "    pm.expect(jsonData.code).to.eql(4005);",
+                  "});",
+                  "pm.test(\"[E2E] message mentions PAID cannot cancel\", function () {",
+                  "    pm.expect(jsonData.message).to.be.a(\"string\");",
+                  "    pm.expect(jsonData.message).to.include(\"已支付\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"E2E 测试取消已支付订单\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{e2e_order_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{e2e_order_id}}",
+                "cancel"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "var NO_AUTH = [\"TC-ORDER-006\", \"TC-ORDER-007\", \"TC-ORDER-008\", \"TC-GET-008\", \"TC-CANCEL-010\"];",
+          "var nm = pm.info.requestName;",
+          "if (!NO_AUTH.some(function(n) { return nm.indexOf(n) === 0; })) {",
+          "  var tok = pm.environment.get(\"auth_token\");",
+          "  if (tok) pm.request.headers.add({ key: \"Authorization\", value: \"Bearer \" + tok });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

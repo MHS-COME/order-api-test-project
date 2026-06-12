@@ -1,0 +1,308 @@
+{
+  "info": {
+    "name": "00-注册模块",
+    "description": "用户注册接口测试集合。覆盖正向注册、用户名重复、参数校验、边界值场景。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "order-api-test-project"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "testuser",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "TC-REG-001 [正向] 注册成功",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 0\", function () {",
+              "    pm.expect(jsonData.code).to.eql(0);",
+              "});",
+              "",
+              "pm.test(\"message equals success\", function () {",
+              "    pm.expect(jsonData.message).to.eql(\"success\");",
+              "});",
+              "",
+              "pm.test(\"data.id is a positive integer\", function () {",
+              "    pm.expect(jsonData.data).to.have.property(\"id\");",
+              "    pm.expect(jsonData.data.id).to.be.a(\"number\").and.above(0);",
+              "});",
+              "",
+              "pm.test(\"data.username equals request username\", function () {",
+              "    pm.expect(jsonData.data.username).to.eql(\"newuser\");",
+              "});",
+              "",
+              "pm.test(\"data.email equals request email\", function () {",
+              "    pm.expect(jsonData.data.email).to.eql(\"newuser@example.com\");",
+              "});",
+              "",
+              "pm.test(\"response does NOT contain token\", function () {",
+              "    pm.expect(pm.response.text()).to.not.include(\"\\\"token\\\"\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"newuser\",\n  \"password\": \"NewUser@123\",\n  \"email\": \"newuser@example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-REG-002 [反向] 用户名已存在",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1003 (duplicate username)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1003);",
+              "});",
+              "",
+              "pm.test(\"message mentions duplicate/existing username\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(jsonData.message).to.include(\"用户名已存在\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"Test@123456\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-REG-003 [反向] username 长度不足",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1001 (param validation error)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1001);",
+              "});",
+              "",
+              "pm.test(\"message mentions username length\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"username\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"abc\",\n  \"password\": \"Test@123456\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-REG-004 [反向] password 长度不足",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1001 (param validation error)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1001);",
+              "});",
+              "",
+              "pm.test(\"message mentions password length\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"password\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"newuser2\",\n  \"password\": \"T@123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC-REG-005 [反向] 邮箱格式错误",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response time < 2000ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "",
+              "pm.test(\"code equals 1001 (param validation error)\", function () {",
+              "    pm.expect(jsonData.code).to.eql(1001);",
+              "});",
+              "",
+              "pm.test(\"message mentions email format\", function () {",
+              "    pm.expect(jsonData.message).to.be.a(\"string\");",
+              "    pm.expect(jsonData.message).to.include(\"email\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"newuser3\",\n  \"password\": \"Test@123456\",\n  \"email\": \"invalid-email\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

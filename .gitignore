@@ -1,0 +1,18 @@
+# Dependencies
+mock-server/node_modules/
+node_modules/
+
+# TAPD credentials — DO NOT commit real credentials
+tapd-config.json
+
+# Newman test output (generated)
+newman/report.json
+newman/report.html
+newman/results.json
+newman/.reported-bugs.json
+
+# OS files
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
