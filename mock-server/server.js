@@ -211,6 +211,19 @@ server.get('/orders/:id', (req, res) => {
   ok(res, order);
 });
 
+// ── GET /orders ───────────────────────────────────────────
+server.get('/orders', (req, res) => {
+  const state = db.getState();
+  const userOrders = state.orders
+    .filter(o => o.userId === req.user.userId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  ok(res, {
+    orders: userOrders,
+    total: userOrders.length,
+    userId: req.user.userId
+  });
+});
+
 // ── POST /payment ─────────────────────────────────────────
 server.post('/payment', (req, res) => {
   const { orderId, amount, paymentMethod } = req.body;
@@ -286,6 +299,9 @@ router.render = (req, res) => {
   }
   res.jsonp({ code: 0, message: 'success', data });
 };
+
+// ── GET /health ────────────────────────────────────────────
+server.get('/health', (req, res) => ok(res, { status: 'UP', uptime: process.uptime() }));
 
 // ── POST /__reset — restore seed data in-memory ───────────
 server.post('/__reset', (req, res) => {

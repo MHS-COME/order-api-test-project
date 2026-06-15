@@ -2,15 +2,20 @@
 /**
  * auto-create-bugs.js
  *
- * 读取 Newman JSON 报告，将失败断言自动创建为 TAPD 缺陷，
- * 并对本次已通过的用例自动关闭对应的历史缺陷。
+ * 双向缺陷管理: 读取 Newman JSON 报告, 将失败用例创建为 TAPD 缺陷,
+ * 同时对已通过的用例自动关闭对应的历史缺陷。
  *
  * 用法:
  *   node auto-create-bugs.js                              # 默认读取 newman/report.json
  *   node auto-create-bugs.js --report <path>              # 读取单个报告
- *   node auto-create-bugs.js --reports-dir <dir>          # 读取目录下所有 *_report.json
+ *   node auto-create-bugs.js --reports-dir <dir>          # 读取目录下所有 JSON 报告
  *
  * 配置: 复制 tapd-config.example.json → tapd-config.json 并填写真实凭证
+ *
+ * 工作流程:
+ *   Phase 1  → 读取 Newman 报告，分类「通过」与「失败」
+ *   Phase 2  → 自动关闭已通过用例的历史缺陷 (new/in_progress → resolved)
+ *   Phase 3  → 为失败用例创建新缺陷 (带去重保护)
  */
 
 'use strict';
@@ -20,7 +25,10 @@ const path = require('path');
 const https = require('https');
 const querystring = require('querystring');
 
-// ── CLI 参数解析 ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  CLI 参数解析
+// ═══════════════════════════════════════════════════════════════
+
 const args = process.argv.slice(2);
 let REPORT_FILE = null;
 let REPORTS_DIR = null;
@@ -33,16 +41,26 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-// ── 路径常量 ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  常量与路径
+// ═══════════════════════════════════════════════════════════════
+
 const ROOT_DIR    = __dirname;
 const CONFIG_FILE = path.join(ROOT_DIR, 'tapd-config.json');
 const DEFAULT_RPT = path.join(ROOT_DIR, 'newman', 'report.json');
 const SEEN_FILE   = path.join(ROOT_DIR, 'newman', '.reported-bugs.json');
+const TAPD_HOST   = 'api.tapd.cn';
+const TAPD_PORT   = 443;
+const TAPD_TMOUT  = 30000;
 
-// ── 1. 加载配置文件 ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  1. 加载配置文件
+// ═══════════════════════════════════════════════════════════════
+
 console.log('');
 console.log('========================================');
-console.log('  TAPD 缺陷自动创建 & 状态更新工具');
+console.log('  TAPD 缺陷双向同步工具');
+console.log('  Phase 1: 分析报告 → Phase 2: 自动关闭 → Phase 3: 创建缺陷');
 console.log('========================================');
 
 let config = {};
@@ -56,12 +74,12 @@ try {
   process.exit(1);
 }
 
-// 优先使用环境变量（CI），其次使用配置文件
-const workspace_id   = process.env.TAPD_WORKSPACE_ID   || config.workspace_id;
-const api_user       = process.env.TAPD_API_USER       || config.api_user;
-const api_password   = process.env.TAPD_API_PASSWORD   || config.api_password;
-const close_status   = process.env.TAPD_CLOSE_STATUS   || config.close_status   || 'resolved';
-const bug_title_prefix = process.env.TAPD_TITLE_PREFIX || config.bug_title_prefix || '[AutoTest]';
+// 环境变量 > 配置文件
+const workspace_id     = process.env.TAPD_WORKSPACE_ID   || config.workspace_id;
+const api_user         = process.env.TAPD_API_USER       || config.api_user;
+const api_password     = process.env.TAPD_API_PASSWORD   || config.api_password;
+const close_status     = process.env.TAPD_CLOSE_STATUS   || config.close_status   || 'resolved';
+const bug_title_prefix = process.env.TAPD_TITLE_PREFIX   || config.bug_title_prefix || '[AutoTest]';
 
 const missing = [];
 if (!workspace_id)  missing.push('workspace_id');
@@ -76,14 +94,16 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-console.log('  Config source : ' + (process.env.TAPD_WORKSPACE_ID ? 'env vars' : 'config file'));
+console.log('  数据来源 : ' + (process.env.TAPD_WORKSPACE_ID ? '环境变量' : 'tapd-config.json'));
+console.log('  工作空间 : ' + workspace_id);
+console.log('  API 用户 : ' + api_user);
+console.log('  关闭状态 : ' + close_status);
 
-console.log('  Workspace ID  : ' + workspace_id);
-console.log('  API User      : ' + api_user);
-console.log('  Close status  : ' + close_status);
+// ═══════════════════════════════════════════════════════════════
+//  2. 加载去重缓存
+// ═══════════════════════════════════════════════════════════════
 
-// ── 1.5 加载已上报记录（去重） ───────────────────────────────
-/** @type {Map<string, string>} signature -> bugId */
+/** @type {Map<string, string>} 签名 → bugId */
 const reportedBugs = new Map();
 try {
   if (fs.existsSync(SEEN_FILE)) {
@@ -91,14 +111,16 @@ try {
     for (const entry of seen) {
       reportedBugs.set(entry.signature, entry.bugId);
     }
-    console.log('  Dedup cache   : ' + reportedBugs.size + ' known signature(s)');
+    console.log('  去重缓存 : ' + reportedBugs.size + ' 条记录');
   }
-} catch (_) { /* missing or corrupt */ }
+} catch (_) { /* 缺失或损坏则从零开始 */ }
 
-// ── 2. 读取 Newman JSON 报告（支持单文件或目录批量） ──────────
+// ═══════════════════════════════════════════════════════════════
+//  3. 读取 Newman JSON 报告 (支持单文件或目录批量)
+// ═══════════════════════════════════════════════════════════════
 
 /**
- * 读取单个 Newman JSON 报告文件
+ * 读取单个 Newman JSON 报告
  * @param {string} filePath
  * @returns {{name:string, executions:Array}}
  */
@@ -106,7 +128,7 @@ function readReportFile(filePath) {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const rep = JSON.parse(raw);
   if (!rep.run || !rep.run.executions || !Array.isArray(rep.run.executions)) {
-    throw new Error('格式异常：缺少 run.executions 数组');
+    throw new Error('格式异常: 找不到 run.executions 数组');
   }
   return { name: path.basename(filePath), executions: rep.run.executions };
 }
@@ -115,29 +137,27 @@ function readReportFile(filePath) {
 const allReports = [];
 
 if (REPORTS_DIR) {
-  // ── 批量模式：读取目录下所有 *_report.json 文件 ──────────────
   if (!fs.existsSync(REPORTS_DIR)) {
     console.error('[ERROR] 报告目录不存在: ' + REPORTS_DIR);
     process.exit(1);
   }
   const files = fs.readdirSync(REPORTS_DIR)
-    .filter(f => f.endsWith('_report.json') || f.endsWith('.json'))
+    .filter(f => f.endsWith('.json'))
     .sort();
   if (files.length === 0) {
-    console.error('[ERROR] 报告目录中没有找到 JSON 报告: ' + REPORTS_DIR);
+    console.error('[ERROR] 报告目录下没有 JSON 文件: ' + REPORTS_DIR);
     process.exit(1);
   }
-  console.log('  Reports dir   : ' + REPORTS_DIR + ' (' + files.length + ' file(s))');
+  console.log('  报告目录 : ' + REPORTS_DIR + ' (' + files.length + ' 个文件)');
   for (const f of files) {
     const fp = path.join(REPORTS_DIR, f);
     try {
       allReports.push(readReportFile(fp));
     } catch (err) {
-      console.error('[WARN] 跳过报告 ' + f + ': ' + err.message);
+      console.error('  [WARN] 跳过 ' + f + ': ' + err.message);
     }
   }
 } else {
-  // ── 单报告模式 ──────────────────────────────────────────────
   const target = REPORT_FILE || DEFAULT_RPT;
   if (!fs.existsSync(target)) {
     console.error('[ERROR] Newman 报告不存在: ' + target);
@@ -147,7 +167,7 @@ if (REPORTS_DIR) {
   try {
     allReports.push(readReportFile(target));
   } catch (err) {
-    console.error('[ERROR] 无法读取 Newman 报告: ' + err.message);
+    console.error('[ERROR] 无法读取报告: ' + err.message);
     process.exit(1);
   }
 }
@@ -166,22 +186,21 @@ if (allExecutions.length === 0) {
   process.exit(1);
 }
 
-console.log('  Report files  : ' + allReports.length);
-console.log('  Total execs   : ' + allExecutions.length);
+console.log('  报告文件 : ' + allReports.length);
+console.log('  执行记录 : ' + allExecutions.length);
 
-// ── 覆写 report 变量以兼容后续代码 ────────────────────────────
-const report = { run: { executions: allExecutions } };
-
-// ── 3. 分类所有用例：通过 vs 失败 ────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  4. 分类用例: 通过 vs 失败
+// ═══════════════════════════════════════════════════════════════
 
 /** @type {string[]} 所有断言均通过的用例名称 */
 const passedNames = [];
 
 /** @type {Array<{name:string, method:string, url:string, statusCode:number|string,
- *          requestBody:string, responseBody:string, assertions:Array<{name:string, error:string}>}>} */
+ *          requestBody:string, responseBody:string, assertions:Array}>} */
 const failedRequests = [];
 
-for (const exec of report.run.executions) {
+for (const exec of allExecutions) {
   const assertions = exec.assertions || [];
   const failed = assertions.filter(a => a.error);
 
@@ -203,44 +222,45 @@ for (const exec of report.run.executions) {
     responseBody: typeof response.body === 'string'
                     ? response.body
                     : (response.body ? JSON.stringify(response.body) : ''),
-    assertions: failed.map(a => ({
+    assertions:   failed.map(a => ({
       name:  a.assertion,
       error: (a.error && a.error.message) ? a.error.message : 'Unknown error'
     }))
   });
 }
 
-console.log('  Passed        : ' + passedNames.length);
-console.log('  Failed        : ' + failedRequests.length);
+console.log('');
+console.log('  分析结果:');
+console.log('    通过 : ' + passedNames.length + ' 条');
+console.log('    失败 : ' + failedRequests.length + ' 条');
 console.log('========================================');
 console.log('');
 
-// ── 4. TAPD API 封装 ────────────────────────────────────────
-
-const TAPD_HOST  = 'api.tapd.cn';
-const TAPD_PORT  = 443;
-const TAPD_TMOUT = 30000;
+// ═══════════════════════════════════════════════════════════════
+//  5. TAPD API 封装
+// ═══════════════════════════════════════════════════════════════
 
 /**
  * 发起 TAPD API 请求
  * @param {'GET'|'POST'} method
- * @param {string} path      API 路径，如 '/bugs'
- * @param {object} [data]    POST 时的表单数据；GET 时拼接到 URL
- * @returns {Promise<object>} 解析后的 JSON 响应体
+ * @param {string} apiPath   API 路径，如 '/bugs'
+ * @param {object} [data]    POST 时的表单数据
+ * @param {number} [redirectCount] 内部递归计数器
+ * @returns {Promise<object>}
  */
-function tapdRequest(method, path, data, _redirectCount) {
-  const redirectCount = _redirectCount || 0;
+function tapdRequest(method, apiPath, data, redirectCount) {
+  const _redirectCount = redirectCount || 0;
   const MAX_REDIRECTS = 5;
 
   return new Promise((resolve, reject) => {
     const auth = Buffer.from(api_user + ':' + api_password).toString('base64');
 
-    let fullPath = path;
+    let fullPath = apiPath;
     let postData = null;
 
     if (method === 'GET' && data) {
       const qs = querystring.stringify(data);
-      fullPath = path + (path.includes('?') ? '&' : '?') + qs;
+      fullPath = apiPath + (apiPath.includes('?') ? '&' : '?') + qs;
     } else if (method === 'POST' && data) {
       postData = querystring.stringify(data);
     }
@@ -262,24 +282,22 @@ function tapdRequest(method, path, data, _redirectCount) {
     }
 
     const req = https.request(options, (res) => {
-      // 处理重定向 (3xx)
+      // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        if (redirectCount >= MAX_REDIRECTS) {
+        if (_redirectCount >= MAX_REDIRECTS) {
           reject(new Error('重定向次数过多'));
           return;
         }
-        // 消费响应体后递归跟随
         res.resume();
-        const newPath = res.headers.location;
-        // 从完整 URL 提取路径
+        const loc = res.headers.location;
         let parsedPath;
-        if (newPath.startsWith('http')) {
-          const u = new URL(newPath);
+        if (loc.startsWith('http')) {
+          const u = new URL(loc);
           parsedPath = u.pathname + u.search;
         } else {
-          parsedPath = newPath;
+          parsedPath = loc;
         }
-        resolve(tapdRequest(method, parsedPath, data, redirectCount + 1));
+        resolve(tapdRequest(method, parsedPath, data, _redirectCount + 1));
         return;
       }
 
@@ -295,10 +313,7 @@ function tapdRequest(method, path, data, _redirectCount) {
       });
     });
 
-    req.on('error', (err) => {
-      reject(new Error('网络请求失败: ' + err.message));
-    });
-
+    req.on('error', (err) => reject(new Error('网络请求失败: ' + err.message)));
     req.on('timeout', () => {
       req.destroy();
       reject(new Error('请求超时 (' + (TAPD_TMOUT / 1000) + 's)'));
@@ -310,13 +325,13 @@ function tapdRequest(method, path, data, _redirectCount) {
 }
 
 /**
- * 查询 TAPD 缺陷（按标题关键词模糊匹配）
+ * 查询 TAPD 缺陷
  * @param {string} titleKeyword  标题搜索关键词
- * @param {string} [statusFilter] 状态筛选，如 "new|in_progress"
+ * @param {string} [statusFilter] 状态筛选, 如 "new|in_progress"
  * @returns {Promise<Array<{id:string, title:string, status:string}>>}
  */
 function queryTapdBugs(titleKeyword, statusFilter) {
-  console.log('  Query TAPD: title ~ "' + truncate(titleKeyword, 60) + '" ...');
+  console.log('  [查询] 标题 ~ "' + truncate(titleKeyword, 60) + '" ...');
 
   const params = {
     workspace_id: String(workspace_id),
@@ -337,7 +352,6 @@ function queryTapdBugs(titleKeyword, statusFilter) {
       }
       return bugs;
     }
-    // 无匹配结果时 TAPD 可能返回 status=0 或空 data
     return [];
   });
 }
@@ -345,9 +359,9 @@ function queryTapdBugs(titleKeyword, statusFilter) {
 /**
  * 更新 TAPD 缺陷状态
  * @param {string} bugId     缺陷 ID
- * @param {string} newStatus 新状态，如 "resolved"
+ * @param {string} newStatus 新状态, 如 "resolved"
  * @param {string} [comment] 可选备注
- * @returns {Promise<{id:string}>}
+ * @returns {Promise<{id:string, status:string}>}
  */
 function updateBugStatus(bugId, newStatus, comment) {
   const data = {
@@ -359,9 +373,7 @@ function updateBugStatus(bugId, newStatus, comment) {
     data.description = comment;
   }
 
-  // TAPD 更新与创建使用同一个 POST /bugs 端点，带 id 即为更新
   return tapdRequest('POST', '/bugs', data).then(resp => {
-    // TAPD 更新成功时 status=1 即可，不一定返回 Bug 对象
     if (resp && resp.status === 1) {
       return { id: bugId, status: newStatus };
     }
@@ -373,7 +385,7 @@ function updateBugStatus(bugId, newStatus, comment) {
 /**
  * 创建 TAPD 缺陷
  * @param {string} title       缺陷标题
- * @param {string} description 缺陷描述（TAPD wiki 格式）
+ * @param {string} description 缺陷描述 (TAPD wiki 格式)
  * @returns {Promise<{id:string, title:string}>}
  */
 function createTapdBug(title, description) {
@@ -394,11 +406,25 @@ function createTapdBug(title, description) {
   });
 }
 
-// ── 5. 构建缺陷描述 ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  6. 工具函数
+// ═══════════════════════════════════════════════════════════════
+
+function escapePipe(s) { return String(s).replace(/\|/g, '\\|'); }
+function escapeWiki(s) { return String(s).replace(/\{/g, '\\{').replace(/\}/g, '\\}'); }
+function truncate(s, max) {
+  const str = typeof s === 'string' ? s : JSON.stringify(s);
+  return str.length <= max ? str : str.substring(0, max) + '…[truncated]';
+}
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function buildSignature(f) {
+  const assertionNames = f.assertions.map(a => a.name).sort().join(';');
+  return f.name + '::' + assertionNames;
+}
 
 /**
- * @param {object} f 失败请求对象
- * @returns {string} TAPD wiki 格式描述
+ * 构建 TAPD 缺陷描述 (Wiki 格式)
  */
 function buildDescription(f) {
   const lines = [];
@@ -451,39 +477,29 @@ function buildDescription(f) {
   return lines.join('\n');
 }
 
-function escapePipe(s) { return String(s).replace(/\|/g, '\\|'); }
-function escapeWiki(s) { return String(s).replace(/\{/g, '\\{').replace(/\}/g, '\\}'); }
-function truncate(s, max) {
-  const str = typeof s === 'string' ? s : JSON.stringify(s);
-  return str.length <= max ? str : str.substring(0, max) + '…[truncated]';
-}
-
-// ── 6. 去重签名 ──────────────────────────────────────────────
-function buildSignature(f) {
-  const assertionNames = f.assertions.map(a => a.name).sort().join(';');
-  return f.name + '::' + assertionNames;
-}
-
-// ── 7. 自动关闭已通过的缺陷 ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  7. Phase 2 — 自动关闭已通过用例的对应缺陷
+// ═══════════════════════════════════════════════════════════════
 
 /**
- * 对于本次运行已通过的用例，查询 TAPD 中是否存在对应的未关闭缺陷，
- * 若有，则将其状态更新为 close_status（默认 "resolved"）。
- *
- * 匹配规则：TAPD 缺陷标题以 `[AutoTest] <用例名称>` 开头。
+ * 对于本次已通过的每个用例，到 TAPD 中查找标题包含该用例名称、
+ * 且状态为 "new" 或 "in_progress" 的缺陷。若找到，则将其状态更新
+ * 为 close_status (默认 "resolved")，并添加备注。
  *
  * @returns {Promise<{closed:number, failed:number}>}
  */
 async function autoClosePassedBugs() {
   if (passedNames.length === 0) {
-    console.log('[AUTO-CLOSE] 没有已通过的用例，跳过。');
+    console.log('[Phase 2] 没有已通过的用例，跳过自动关闭。');
     console.log('');
     return { closed: 0, failed: 0 };
   }
 
-  // 去重：同一个用例可能在报告中出现多次（如数据驱动），只处理唯一的
   const uniqueNames = [...new Set(passedNames)];
-  console.log('[AUTO-CLOSE] 检查 ' + uniqueNames.length + ' 个唯一已通过用例的历史缺陷...');
+  console.log('[Phase 2] 自动关闭已通过用例的历史缺陷...');
+  console.log('  待检查用例 : ' + uniqueNames.length);
+  console.log('  搜索状态   : new | in_progress');
+  console.log('  目标状态   : ' + close_status);
   console.log('');
 
   let closed = 0;
@@ -491,33 +507,39 @@ async function autoClosePassedBugs() {
 
   for (let i = 0; i < uniqueNames.length; i++) {
     const testName = uniqueNames[i];
-    const prefix   = '[' + (i + 1) + '/' + uniqueNames.length + ']';
+    const prefix   = '  [' + (i + 1) + '/' + uniqueNames.length + ']';
 
     try {
-      // 搜索 TAPD 中标题以 "[AutoTest] <testName>" 开头的未关闭缺陷
+      // 搜索 TAPD 中标题包含 "[AutoTest] <用例名称>" 的未关闭缺陷
       const existingBugs = await queryTapdBugs(
         bug_title_prefix + ' ' + testName,
-        'new|in_progress'           // 只查未关闭的
+        'new|in_progress'       // TAPD 状态码: new=新, in_progress=进行中
       );
 
       if (existingBugs.length === 0) {
-        console.log(prefix + ' [SKIP] 无未关闭缺陷 — ' + testName);
+        // 无未关闭缺陷，跳过
         continue;
       }
 
-      // 逐个更新状态
+      console.log(prefix + ' 找到 ' + existingBugs.length + ' 个未关闭缺陷 — ' + testName);
+
       for (const bug of existingBugs) {
         const bugId = bug.id;
-        const comment = '本次自动化测试已通过，自动关闭。\n用例: ' + testName +
-                        '\n时间: ' + new Date().toISOString();
+        const currentStatus = bug.status;
+        const comment =
+          '该问题已在本次回归测试中通过，自动关闭。\n' +
+          '用例名称: ' + testName + '\n' +
+          '关闭时间: ' + new Date().toISOString() + '\n' +
+          '来源: OrderAPITest 自动化测试';
 
         try {
           await updateBugStatus(bugId, close_status, comment);
-          console.log(prefix + ' [CLOSED] Bug #' + bugId +
-                      ' → ' + close_status + ' — ' + truncate(bug.title, 50));
+          console.log(prefix + '   [已关闭] Bug #' + bugId +
+                      ' [' + currentStatus + ' → ' + close_status + '] — ' +
+                      truncate(bug.title, 50));
           closed++;
         } catch (err) {
-          console.error(prefix + ' [FAIL] Bug #' + bugId + ' 更新失败: ' + err.message);
+          console.error(prefix + '   [失败] Bug #' + bugId + ' 更新失败: ' + err.message);
           failed++;
         }
 
@@ -525,69 +547,73 @@ async function autoClosePassedBugs() {
         await sleep(300);
       }
     } catch (err) {
-      console.error(prefix + ' [FAIL] 查询 TAPD 失败 (' + testName + '): ' + err.message);
+      console.error(prefix + ' [失败] 查询失败 (' + testName + '): ' + err.message);
       failed++;
     }
 
-    // 每个用例之间稍作停顿
     if (i < uniqueNames.length - 1) {
       await sleep(200);
     }
   }
 
   console.log('');
-  console.log('[AUTO-CLOSE] 完成: ' + closed + ' 个关闭, ' + failed + ' 个失败');
+  console.log('[Phase 2] 完成: 已关闭 ' + closed + ' 个缺陷, 失败 ' + failed + ' 个');
   console.log('========================================');
   console.log('');
   return { closed, failed };
 }
 
-// ── 8. 主流程 ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  8. Phase 3 — 为失败用例创建缺陷
+// ═══════════════════════════════════════════════════════════════
 
-async function main() {
-
-  // ── 8a. 先自动关闭已通过用例的缺陷 ──────────────────────────
-  autoCloseResult = await autoClosePassedBugs();
-
-  // ── 8b. 为失败用例创建缺陷（带去重） ────────────────────────
+/**
+ * @returns {Promise<{created:number, skipped:number, failed:number}>}
+ */
+async function createBugsForFailures() {
   if (failedRequests.length === 0) {
-    console.log('[OK] 所有测试用例均已通过，无需创建缺陷。');
-    process.exit(0);
+    console.log('[Phase 3] 没有失败的用例，跳过创建缺陷。');
+    console.log('');
+    return { created: 0, skipped: 0, failed: 0 };
   }
+
+  console.log('[Phase 3] 为失败用例创建 TAPD 缺陷...');
+  console.log('  待处理 : ' + failedRequests.length + ' 个');
+  console.log('');
 
   let created = 0;
   let skipped = 0;
   let failed  = 0;
-  let total   = 0;
 
   for (let i = 0; i < failedRequests.length; i++) {
     const f   = failedRequests[i];
     const sig = buildSignature(f);
+    const prefix = '  [' + (i + 1) + '/' + failedRequests.length + ']';
 
-    // 去重检查
+    // 去重检查：相同的用例名 + 相同的失败断言组合 → 不重复提单
     if (reportedBugs.has(sig)) {
-      console.log('[' + (i + 1) + '/' + failedRequests.length + '] [SKIP] Already Bug #' + reportedBugs.get(sig) + ' — ' + f.name);
+      console.log(prefix + ' [跳过] 已有 Bug #' + reportedBugs.get(sig) + ' — ' + truncate(f.name, 50));
       skipped++;
       continue;
     }
 
-    total++;
+    // 标题格式: [AutoTest] TC-LOGIN-001 [正向] 登录成功 — Status code is 200
     const firstErr = f.assertions[0];
     const title = bug_title_prefix + ' ' + f.name + ' — ' + firstErr.name;
 
-    console.log('[' + (i + 1) + '/' + failedRequests.length + '] ' + title);
+    console.log(prefix + ' 创建: ' + title);
 
     try {
       const bug = await createTapdBug(title, buildDescription(f));
-      console.log('  [OK] 缺陷已创建 → Bug #' + bug.id);
-      reportedBugs.set(sig, bug.id);
+      console.log(prefix + '   [已创建] → Bug #' + bug.id);
+      reportedBugs.set(sig, String(bug.id));
       created++;
     } catch (err) {
-      console.error('  [FAIL] ' + err.message);
+      console.error(prefix + '   [失败] ' + err.message);
       failed++;
     }
 
-    // API 限流保护：每个请求间隔 500ms
+    // API 限流保护
     if (i < failedRequests.length - 1) {
       await sleep(500);
     }
@@ -609,27 +635,42 @@ async function main() {
   }
 
   console.log('');
-  console.log('========================================');
-  console.log('  执行完成');
-  console.log('    关闭 : ' + (typeof autoCloseResult !== 'undefined' ? autoCloseResult.closed : 'N/A'));
-  console.log('    创建 : ' + created);
-  console.log('    跳过 : ' + skipped);
-  console.log('    失败 : ' + failed);
-  console.log('    总计 : ' + failedRequests.length);
-  console.log('========================================');
+  console.log('[Phase 3] 完成: 创建 ' + created + ' 个, 跳过 ' + skipped + ' 个, 失败 ' + failed + ' 个');
+  return { created, skipped, failed };
+}
 
-  const totalFailed = failed + (typeof autoCloseResult !== 'undefined' ? autoCloseResult.failed : 0);
+// ═══════════════════════════════════════════════════════════════
+//  9. 主流程
+// ═══════════════════════════════════════════════════════════════
+
+async function main() {
+  const startTime = Date.now();
+
+  // Phase 2: 自动关闭 (先关后建，逻辑上更合理)
+  const closeResult = await autoClosePassedBugs();
+
+  // Phase 3: 创建缺陷
+  const createResult = await createBugsForFailures();
+
+  // 汇总
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log('========================================');
+  console.log('  执行完成 (耗时 ' + elapsed + 's)');
+  console.log('    Phase 2 关闭缺陷 : ' + closeResult.closed + ' 个');
+  console.log('    Phase 3 创建缺陷 : ' + createResult.created + ' 个');
+  console.log('    Phase 3 跳过重复 : ' + createResult.skipped + ' 个');
+  console.log('    操作失败         : ' + (closeResult.failed + createResult.failed) + ' 个');
+  console.log('========================================');
+  console.log('');
+
+  const totalFailed = closeResult.failed + createResult.failed;
   process.exit(totalFailed > 0 ? 1 : 0);
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// kick-off
-let autoCloseResult = { closed: 0, failed: 0 };
 main().catch(err => {
-  console.error('[FATAL] ' + err.message);
+  console.error('');
+  console.error('[FATAL] 未捕获的异常:');
+  console.error(err.message);
   console.error(err.stack);
   process.exit(1);
 });

@@ -11,8 +11,19 @@ newman/report.html
 newman/results.json
 newman/.reported-bugs.json
 
+# Allure (generated + CLI tool)
+allure-report/
+allure-results/
+allure-2.42.1/
+performance-summary.json
+
+# Python
+selenium_tests/__pycache__/
+selenium_tests/.pytest_cache/
+
 # OS files
 Thumbs.db
 Desktop.ini
 *.swp
 *.swo
+面试准备文档.md

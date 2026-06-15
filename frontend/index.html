@@ -3,355 +3,859 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OrderAPI — 接口演示</title>
+<title>OrderAPI 自动化测试平台</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: #f0f2f5; color: #333; min-height: 100vh;
-  }
-  .header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    color: #fff; padding: 20px 32px; display: flex; align-items: center; gap: 16px;
-  }
-  .header .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  .header .dot.on { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
-  .header .dot.off { background: #f87171; box-shadow: 0 0 6px #f87171; }
-  .header h1 { font-size: 20px; font-weight: 600; }
-  .header .sub { font-size: 12px; opacity: .7; margin-left: auto; }
-  .toolbar {
-    background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 32px;
-    display: flex; gap: 12px; align-items: center; font-size: 13px; flex-wrap: wrap;
-  }
-  .toolbar strong { color: #1a1a2e; }
-  .toolbar code {
-    background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-size: 12px;
-    word-break: break-all; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .container { max-width: 1300px; margin: 0 auto; padding: 24px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
+:root {
+  --primary: #4f46e5; --primary-hover: #4338ca; --primary-light: #eef2ff;
+  --success: #059669; --success-bg: #ecfdf5;
+  --danger: #dc2626; --danger-bg: #fef2f2;
+  --warning: #d97706; --warning-bg: #fffbeb;
+  --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+  --gray-300: #d1d5db; --gray-400: #9ca3af; --gray-500: #6b7280;
+  --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+  --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,.08); --shadow-lg: 0 4px 16px rgba(0,0,0,.12);
+  --sidebar-w: 220px; --header-h: 56px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",sans-serif;background:var(--gray-50);color:var(--gray-800);display:flex;min-height:100vh}
+a{color:var(--primary);text-decoration:none}
 
-  .card {
-    background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    overflow: hidden;
-  }
-  .card-head {
-    padding: 14px 20px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #f0f0f0;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .card-head .icon { font-size: 16px; }
-  .card-body { padding: 16px 20px; }
-  .card-body label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
-  .card-body input, .card-body select {
-    width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
-    font-size: 13px; margin-bottom: 10px; font-family: inherit; transition: border-color .15s;
-  }
-  .card-body input:focus, .card-body select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
-  .card-body .row { display: flex; gap: 8px; }
-  .card-body .row > * { flex: 1; }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500;
-    cursor: pointer; transition: all .15s; font-family: inherit;
-  }
-  .btn-primary { background: #3b82f6; color: #fff; }
-  .btn-primary:hover { background: #2563eb; }
-  .btn-danger { background: #ef4444; color: #fff; }
-  .btn-danger:hover { background: #dc2626; }
-  .btn-outline { background: #fff; color: #374151; border: 1px solid #d1d5db; }
-  .btn-outline:hover { background: #f9fafb; }
-  .btn-sm { padding: 5px 12px; font-size: 12px; }
+/* ── 侧边栏 ── */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#1e1b4b 0%,#312e81 100%);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s}
+.sidebar-brand{padding:20px 20px 28px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar-brand h2{font-size:16px;font-weight:700;letter-spacing:.3px}
+.sidebar-brand span{font-size:11px;opacity:.55;display:block;margin-top:4px}
+.sidebar-nav{flex:1;padding:12px;overflow-y:auto}
+.sidebar-nav .nav-section{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.35);padding:16px 8px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:13px;cursor:pointer;color:rgba(255,255,255,.7);transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.badge-nav{font-size:10px;padding:2px 7px;border-radius:10px;margin-left:auto;font-weight:600}
+.badge-get{background:rgba(96,165,250,.2);color:#93c5fd}
+.badge-post{background:rgba(52,211,153,.2);color:#6ee7b7}
+.badge-put{background:rgba(251,191,36,.2);color:#fde68a}
+.sidebar-footer{padding:12px;border-top:1px solid rgba(255,255,255,.08)}
+.sidebar-footer .status-row{display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,.5)}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.on{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.dot.off{background:#f87171;box-shadow:0 0 6px #f87171}
 
-  .result {
-    margin-top: 12px; background: #1e293b; border-radius: 8px; padding: 12px;
-    font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-    font-size: 12px; color: #e2e8f0; max-height: 360px; overflow: auto;
-    white-space: pre-wrap; word-break: break-all; display: none;
-  }
-  .result.show { display: block; }
-  .result .key { color: #93c5fd; }
-  .result .str { color: #86efac; }
-  .result .num { color: #fde68a; }
-  .result .err { color: #fca5a5; }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
-    font-weight: 600;
-  }
-  .badge-get  { background: #dbeafe; color: #1d4ed8; }
-  .badge-post { background: #d1fae5; color: #047857; }
-  .badge-put  { background: #fef3c7; color: #b45309; }
+/* ── 主区域 ── */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column}
+.header{height:var(--header-h);background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:50}
+.header .breadcrumb{font-size:13px;color:var(--gray-500)}
+.header .breadcrumb strong{color:var(--gray-800)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.header-right .token-info{font-size:11px;color:var(--gray-400);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--gray-100);padding:4px 10px;border-radius:4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border:none;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:inherit;line-height:1.4}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover:not(:disabled){background:#b91c1c}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover:not(:disabled){background:#047857}
+.btn-outline{background:#fff;color:var(--gray-700);border:1px solid var(--gray-300)}
+.btn-outline:hover:not(:disabled){background:var(--gray-50)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-lg{padding:10px 24px;font-size:14px}
+.content{padding:28px;flex:1}
+.page{display:none}
+.page.active{display:block}
+
+/* ── 仪表盘卡片 ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow);border:1px solid var(--gray-100)}
+.stat-card .stat-label{font-size:12px;color:var(--gray-400);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.stat-card .stat-value{font-size:28px;font-weight:700;margin-top:6px;color:var(--gray-900)}
+.stat-card .stat-sub{font-size:12px;color:var(--gray-400);margin-top:4px}
+
+/* ── 卡片容器 ── */
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--gray-100);margin-bottom:20px;overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+.card-body{padding:20px}
+
+/* ── 表单 ── */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px}
+.form-group .required::after{content:" *";color:var(--danger)}
+input,select,textarea{width:100%;padding:9px 12px;border:1px solid var(--gray-300);border-radius:7px;font-size:13px;font-family:inherit;transition:border-color .15s,box-shadow .15s;background:#fff}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+input.invalid{border-color:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.08)}
+.field-hint{font-size:11px;color:var(--danger);margin-top:4px;display:none}
+.field-hint.show{display:block}
+.form-row{display:flex;gap:12px}
+.form-row>*{flex:1}
+
+/* ── 结果面板 ── */
+.result-panel{margin-top:16px;border-radius:8px;padding:0;display:none;overflow:hidden}
+.result-panel.show{display:block}
+.result-panel .result-header{padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.result-panel.success .result-header{background:var(--success-bg);color:var(--success)}
+.result-panel.error .result-header{background:var(--danger-bg);color:var(--danger)}
+.result-panel .result-body{background:#1e293b;color:#e2e8f0;padding:14px 16px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:12px;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+
+/* ── Toast ── */
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 18px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);animation:slideIn .3s ease;max-width:420px;display:flex;align-items:center;gap:10px}
+.toast.success{background:var(--success);color:#fff}
+.toast.error{background:var(--danger);color:#fff}
+.toast.warning{background:var(--warning);color:#fff}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── 表格 ── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:11px;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--gray-100)}
+td{padding:12px 14px;border-bottom:1px solid var(--gray-50)}
+tr:hover td{background:var(--gray-50)}
+
+.status-tag{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.status-PENDING{background:var(--warning-bg);color:var(--warning)}
+.status-PAID{background:var(--success-bg);color:var(--success)}
+.status-CANCELLED{background:var(--gray-100);color:var(--gray-500)}
+.status-SHIPPED{background:var(--primary-light);color:var(--primary)}
+
+/* ── 订单列表空状态 ── */
+.empty-state{text-align:center;padding:48px 20px;color:var(--gray-400)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:13px}
+
+/* ── 确认弹窗 ── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:var(--radius);padding:28px;max-width:400px;width:90%;box-shadow:var(--shadow-lg)}
+.modal-box h3{font-size:16px;margin-bottom:12px}
+.modal-box p{font-size:13px;color:var(--gray-600);margin-bottom:20px;line-height:1.6}
+.modal-box .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* ── 响应式 ── */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .header{padding:0 16px}
+  .content{padding:16px}
+}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <span class="dot on" id="statusDot" title="API 状态"></span>
-  <h1>OrderAPI — 接口演示</h1>
-  <span class="sub" id="statusText">检测中…</span>
-</div>
+<!-- ═══════════════ 侧边栏 ═══════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <h2>OrderAPI</h2>
+    <span>自动化测试平台 v2.1</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">概览</div>
+    <button class="nav-item active" data-page="dashboard">
+      <span class="icon">📊</span> 仪表盘
+    </button>
 
-<div class="toolbar">
-  <strong>Token:</strong>
-  <code id="tokenDisplay">未登录</code>
-  <strong style="margin-left:16px;">Refresh:</strong>
-  <code id="refreshDisplay">—</code>
-  <span style="margin-left:auto;font-size:12px;color:#9ca3af;">base: http://localhost:3000</span>
-</div>
+    <div class="nav-section">认证模块</div>
+    <button class="nav-item" data-page="login">
+      <span class="icon">🔑</span> 登录
+      <span class="badge-nav badge-post">POST</span>
+    </button>
+    <button class="nav-item" data-page="register">
+      <span class="icon">👤</span> 注册
+      <span class="badge-nav badge-post">POST</span>
+    </button>
+    <button class="nav-item" data-page="refresh">
+      <span class="icon">🔄</span> 刷新令牌
+      <span class="badge-nav badge-post">POST</span>
+    </button>
 
-<div class="container">
-<div class="grid">
-
-  <!-- ============ 注册 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">👤</span> 注册 <span class="badge badge-post">POST</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/register</span></div>
-    <div class="card-body">
-      <label>用户名</label><input type="text" id="reg-username" placeholder="4-32 字符">
-      <label>密码</label><input type="password" id="reg-password" placeholder="6-20 字符">
-      <label>邮箱 (可选)</label><input type="email" id="reg-email" placeholder="user@example.com">
-      <button class="btn btn-primary" onclick="doRegister()">注册</button>
-      <div class="result" id="reg-result"></div>
+    <div class="nav-section">业务模块</div>
+    <button class="nav-item" data-page="orders-list">
+      <span class="icon">📋</span> 我的订单
+      <span class="badge-nav badge-get">GET</span>
+    </button>
+    <button class="nav-item" data-page="orders">
+      <span class="icon">📦</span> 创建订单
+      <span class="badge-nav badge-post">POST</span>
+    </button>
+    <button class="nav-item" data-page="payment">
+      <span class="icon">💳</span> 支付中心
+      <span class="badge-nav badge-post">POST</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="status-row">
+      <span class="dot on" id="sidebarDot"></span>
+      <span id="sidebarStatus">检测中…</span>
     </div>
   </div>
+</aside>
 
-  <!-- ============ 登录 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">🔑</span> 登录 <span class="badge badge-post">POST</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/login</span></div>
-    <div class="card-body">
-      <label>用户名</label><input type="text" id="login-username" value="testuser">
-      <label>密码</label><input type="password" id="login-password" value="Test@123456">
-      <button class="btn btn-primary" onclick="doLogin()">登录</button>
-      <div class="result" id="login-result"></div>
+<!-- ═══════════════ 主区域 ═══════════════ -->
+<div class="main">
+  <header class="header">
+    <div class="breadcrumb">OrderAPI / <strong id="pageTitle">仪表盘</strong></div>
+    <div class="header-right">
+      <span class="token-info" id="tokenDisplay" title="Access Token">未登录</span>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()" id="btn-logout" style="display:none">退出</button>
     </div>
-  </div>
+  </header>
 
-  <!-- ============ 创建订单 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">📦</span> 创建订单 <span class="badge badge-post">POST</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/orders</span></div>
-    <div class="card-body">
-      <label>商品</label>
-      <select id="order-productId">
-        <option value="5001">无线蓝牙耳机 — ¥149.50</option>
-        <option value="5002">机械键盘 — ¥399.00</option>
-        <option value="5003">USB-C 数据线 — ¥29.90</option>
-      </select>
-      <div class="row">
-        <div><label>数量</label><input type="number" id="order-quantity" value="1" min="1" max="999"></div>
-        <div><label>地址ID</label><input type="number" id="order-addressId" value="100" min="1"></div>
+  <div class="content">
+
+    <!-- ═══════════ 仪表盘 ═══════════ -->
+    <section class="page active" id="page-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">API 状态</div>
+          <div class="stat-value" id="stat-status" style="color:var(--success)">在线</div>
+          <div class="stat-sub" id="stat-uptime">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">当前用户</div>
+          <div class="stat-value" id="stat-user" style="font-size:22px">未登录</div>
+          <div class="stat-sub" id="stat-userid">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Token 状态</div>
+          <div class="stat-value" id="stat-token" style="font-size:18px">--</div>
+          <div class="stat-sub" id="stat-expires">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">可用接口</div>
+          <div class="stat-value">8</div>
+          <div class="stat-sub">POST ×4 / GET ×3 / PUT ×1</div>
+        </div>
       </div>
-      <label>备注 (可选)</label><input type="text" id="order-remark" placeholder="备注信息">
-      <button class="btn btn-primary" onclick="doCreateOrder()">创建订单</button>
-      <div class="result" id="order-result"></div>
-    </div>
-  </div>
+      <div class="card">
+        <div class="card-header">📋 接口速览</div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>接口</th><th>方法</th><th>路径</th><th>认证</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>注册</td><td><span class="badge-nav badge-post">POST</span></td><td>/register</td><td>否</td><td>新用户注册</td></tr>
+              <tr><td>登录</td><td><span class="badge-nav badge-post">POST</span></td><td>/login</td><td>否</td><td>获取 JWT 令牌</td></tr>
+              <tr><td>刷新令牌</td><td><span class="badge-nav badge-post">POST</span></td><td>/refresh</td><td>否</td><td>刷新 access token</td></tr>
+              <tr><td>订单列表</td><td><span class="badge-nav badge-get">GET</span></td><td>/orders</td><td>是</td><td>查询当前用户所有订单</td></tr>
+              <tr><td>创建订单</td><td><span class="badge-nav badge-post">POST</span></td><td>/orders</td><td>是</td><td>创建新订单 (PENDING)</td></tr>
+              <tr><td>查询订单</td><td><span class="badge-nav badge-get">GET</span></td><td>/orders/:id</td><td>是</td><td>查询单个订单详情</td></tr>
+              <tr><td>取消订单</td><td><span class="badge-nav badge-put">PUT</span></td><td>/orders/:id/cancel</td><td>是</td><td>取消待支付订单</td></tr>
+              <tr><td>支付订单</td><td><span class="badge-nav badge-post">POST</span></td><td>/payment</td><td>是</td><td>支付订单 (PENDING→PAID)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
-  <!-- ============ 支付订单 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">💳</span> 支付订单 <span class="badge badge-post">POST</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/payment</span></div>
-    <div class="card-body">
-      <label>订单ID</label><input type="number" id="pay-orderId" placeholder="创建订单后自动填充">
-      <label>金额</label><input type="number" id="pay-amount" placeholder="自动填充" step="0.01">
-      <label>支付方式</label>
-      <select id="pay-method">
-        <option value="card">card (银行卡)</option>
-        <option value="wechat">wechat (微信)</option>
-        <option value="alipay">alipay (支付宝)</option>
-      </select>
-      <button class="btn btn-primary" onclick="doPay()">支付</button>
-      <div class="result" id="pay-result"></div>
-    </div>
-  </div>
+    <!-- ═══════════ 登录 ═══════════ -->
+    <section class="page" id="page-login">
+      <div class="card" style="max-width:480px">
+        <div class="card-header">🔑 用户登录 <span style="font-size:11px;color:var(--gray-400);font-weight:400">POST /login</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">用户名</label><input type="text" id="login-username" placeholder="testuser" value="testuser"></div>
+          <div class="form-group"><label class="required">密码</label><input type="password" id="login-password" placeholder="输入密码" value="Test@123456"></div>
+          <button class="btn btn-primary btn-lg" id="btn-login" onclick="doLogin()" style="width:100%">登录</button>
+          <div class="result-panel" id="login-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <!-- ============ 查询订单 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">🔍</span> 查询订单 <span class="badge badge-get">GET</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/orders/:id</span></div>
-    <div class="card-body">
-      <label>订单ID</label><input type="number" id="query-orderId" placeholder="输入订单ID" value="10001">
-      <button class="btn btn-outline" onclick="doQueryOrder()">查询</button>
-      <div class="result" id="query-result"></div>
-    </div>
-  </div>
+    <!-- ═══════════ 注册 ═══════════ -->
+    <section class="page" id="page-register">
+      <div class="card" style="max-width:480px">
+        <div class="card-header">👤 用户注册 <span style="font-size:11px;color:var(--gray-400);font-weight:400">POST /register</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">用户名 (4-32字符)</label><input type="text" id="reg-username" placeholder="输入用户名"></div>
+          <div class="form-group"><label class="required">密码 (6-20字符)</label><input type="password" id="reg-password" placeholder="输入密码"></div>
+          <div class="form-group"><label>邮箱 (可选)</label><input type="email" id="reg-email" placeholder="user@example.com"></div>
+          <button class="btn btn-primary btn-lg" id="btn-register" onclick="doRegister()" style="width:100%">注册</button>
+          <div class="result-panel" id="reg-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <!-- ============ 取消订单 ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">✕</span> 取消订单 <span class="badge badge-put">PUT</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/orders/:id/cancel</span></div>
-    <div class="card-body">
-      <label>订单ID</label><input type="number" id="cancel-orderId" placeholder="输入订单ID">
-      <label>原因 (可选)</label><input type="text" id="cancel-reason" placeholder="取消原因">
-      <button class="btn btn-danger" onclick="doCancelOrder()">取消订单</button>
-      <div class="result" id="cancel-result"></div>
-    </div>
-  </div>
+    <!-- ═══════════ 刷新令牌 ═══════════ -->
+    <section class="page" id="page-refresh">
+      <div class="card" style="max-width:480px">
+        <div class="card-header">🔄 刷新令牌 <span style="font-size:11px;color:var(--gray-400);font-weight:400">POST /refresh</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">Refresh Token</label><input type="text" id="refresh-input" placeholder="登录后自动填充"></div>
+          <button class="btn btn-primary btn-lg" id="btn-refresh" onclick="doRefresh()" style="width:100%">刷新令牌</button>
+          <div class="result-panel" id="refresh-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <!-- ============ 刷新 Token ============ -->
-  <div class="card">
-    <div class="card-head"><span class="icon">🔄</span> 刷新 Token <span class="badge badge-post">POST</span><span style="margin-left:4px;font-size:11px;color:#9ca3af;">/refresh</span></div>
-    <div class="card-body">
-      <label>Refresh Token</label>
-      <input type="text" id="refresh-input" placeholder="登录后自动填充">
-      <button class="btn btn-outline" onclick="doRefresh()">刷新</button>
-      <div class="result" id="refresh-result"></div>
-    </div>
-  </div>
+    <!-- ═══════════ 我的订单 ═══════════ -->
+    <section class="page" id="page-orders-list">
+      <div class="card">
+        <div class="card-header">
+          📋 我的订单
+          <span style="font-size:11px;color:var(--gray-400);font-weight:400">GET /orders</span>
+          <button class="btn btn-outline btn-sm" onclick="loadOrderList()" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div id="order-list-container">
+            <div class="empty-state">
+              <div class="empty-icon">📭</div>
+              <p>请先登录后查看订单列表</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
+    <!-- ═══════════ 创建订单 ═══════════ -->
+    <section class="page" id="page-orders">
+      <div class="card" style="max-width:520px">
+        <div class="card-header">📦 创建订单 <span style="font-size:11px;color:var(--gray-400);font-weight:400">POST /orders</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">商品</label>
+            <select id="order-productId">
+              <option value="5001">无线蓝牙耳机 — ¥149.50</option>
+              <option value="5002">机械键盘 — ¥399.00</option>
+              <option value="5003">USB-C 数据线 — ¥29.90</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="required">数量 (1-999)</label><input type="number" id="order-quantity" value="1" min="1" max="999"></div>
+            <div class="form-group"><label class="required">地址ID</label><input type="number" id="order-addressId" value="100" min="1"></div>
+          </div>
+          <div class="form-group"><label>备注</label><input type="text" id="order-remark" placeholder="可选备注"></div>
+          <button class="btn btn-primary btn-lg" id="btn-create-order" onclick="doCreateOrder()" style="width:100%">创建订单</button>
+          <div class="result-panel" id="order-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ 支付中心 ═══════════ -->
+    <section class="page" id="page-payment">
+      <div class="card" style="max-width:520px">
+        <div class="card-header">💳 支付订单 <span style="font-size:11px;color:var(--gray-400);font-weight:400">POST /payment</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">订单ID</label><input type="number" id="pay-orderId" placeholder="创建订单后自动填充"></div>
+          <div class="form-group"><label class="required">金额 (元)</label><input type="number" id="pay-amount" placeholder="自动填充" step="0.01"></div>
+          <div class="form-group"><label>支付方式</label>
+            <select id="pay-method">
+              <option value="card">银行卡 (card)</option>
+              <option value="wechat">微信支付 (wechat)</option>
+              <option value="alipay">支付宝 (alipay)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-lg" id="btn-pay" onclick="doPay()" style="width:100%">确认支付</button>
+          <div class="result-panel" id="pay-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ 查询订单 ═══════════ -->
+    <section class="page" id="page-query">
+      <div class="card" style="max-width:480px">
+        <div class="card-header">🔍 查询订单 <span style="font-size:11px;color:var(--gray-400);font-weight:400">GET /orders/:id</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">订单ID</label><input type="number" id="query-orderId" placeholder="输入订单ID" value="10001"></div>
+          <button class="btn btn-primary btn-lg" id="btn-query" onclick="doQueryOrder()" style="width:100%">查询</button>
+          <div class="result-panel" id="query-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ 取消订单 ═══════════ -->
+    <section class="page" id="page-cancel">
+      <div class="card" style="max-width:480px">
+        <div class="card-header">✕ 取消订单 <span style="font-size:11px;color:var(--gray-400);font-weight:400">PUT /orders/:id/cancel</span></div>
+        <div class="card-body">
+          <div class="form-group"><label class="required">订单ID</label><input type="number" id="cancel-orderId" placeholder="输入待取消的订单ID"></div>
+          <div class="form-group"><label>取消原因</label><input type="text" id="cancel-reason" placeholder="可选原因"></div>
+          <button class="btn btn-danger btn-lg" id="btn-cancel" onclick="doCancelOrder()" style="width:100%">取消订单</button>
+          <p style="font-size:11px;color:var(--gray-400);margin-top:10px">⚠ 仅支持取消 PENDING（待支付）状态的订单</p>
+          <div class="result-panel" id="cancel-result">
+            <div class="result-header"></div><div class="result-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
 </div>
+
+<!-- 确认弹窗 -->
+<div class="modal-overlay" id="modalConfirm">
+  <div class="modal-box">
+    <h3 id="modal-title">确认操作</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger" id="modal-confirm-btn">确认</button>
+    </div>
+  </div>
 </div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
 
 <script>
-// ── 状态 ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+//  全局状态
+// ═══════════════════════════════════════════════════
 const BASE = 'http://localhost:3000';
 let authToken = '';
 let refreshToken = '';
+let tokenExpiresAt = null;
+let modalCallback = null;
 
-function updateStatus() {
-  document.getElementById('tokenDisplay').textContent = authToken
-    ? authToken.substring(0, 50) + '…'
-    : '未登录';
-  document.getElementById('refreshDisplay').textContent = refreshToken
-    ? refreshToken.substring(0, 50) + '…'
-    : '—';
-  document.getElementById('refresh-input').value = refreshToken;
+// ═══════════════════════════════════════════════════
+//  页面导航
+// ═══════════════════════════════════════════════════
+const pageTitles = {
+  dashboard:'仪表盘', login:'登录', register:'注册',
+  refresh:'刷新令牌', 'orders-list':'我的订单', orders:'创建订单',
+  payment:'支付中心', query:'查询订单', cancel:'取消订单'
+};
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const page = item.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+
+    // 自动加载订单列表
+    if (page === 'orders-list' && authToken) loadOrderList();
+  });
+});
+
+// ═══════════════════════════════════════════════════
+//  Modal 确认弹窗
+// ═══════════════════════════════════════════════════
+function showModal(title, msg, cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent = msg;
+  document.getElementById('modalConfirm').classList.add('show');
+  modalCallback = cb;
+  document.getElementById('modal-confirm-btn').onclick = function() {
+    var cb = modalCallback;
+    closeModal();
+    if (cb) cb();
+  };
 }
 
-// ── HTTP 封装 ─────────────────────────────────────────────────
+function closeModal() {
+  document.getElementById('modalConfirm').classList.remove('show');
+  modalCallback = null;
+}
+
+// ═══════════════════════════════════════════════════
+//  Toast 通知
+// ═══════════════════════════════════════════════════
+function toast(msg, type) {
+  type = type || 'success';
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span>' + (type==='success'?'✅':type==='error'?'❌':'⚠️') + '</span>' + msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity='0';el.style.transition='opacity .3s'; }, 2500);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ═══════════════════════════════════════════════════
+//  UI 更新
+// ═══════════════════════════════════════════════════
+function updateUI() {
+  const hasToken = !!authToken;
+  document.getElementById('tokenDisplay').textContent = hasToken
+    ? authToken.substring(0, 35) + '…' : '未登录';
+  document.getElementById('refresh-input').value = refreshToken || '';
+  document.getElementById('btn-logout').style.display = hasToken ? '' : 'none';
+  document.getElementById('stat-user').textContent = hasToken ? '已登录' : '未登录';
+  document.getElementById('stat-token').textContent = hasToken ? '有效' : '--';
+  document.getElementById('stat-expires').textContent = tokenExpiresAt
+    ? ('过期: ' + tokenExpiresAt.toLocaleTimeString()) : '--';
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? '处理中…' : btn.dataset.label;
+}
+
+document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
+  if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+});
+
+// ═══════════════════════════════════════════════════
+//  结果面板显示
+// ═══════════════════════════════════════════════════
+function showResult(panelId, ok, httpStatus, body) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const header = panel.querySelector('.result-header');
+  const bodyEl  = panel.querySelector('.result-body');
+
+  panel.classList.add('show');
+  panel.classList.remove('success', 'error');
+  panel.classList.add(ok ? 'success' : 'error');
+
+  header.innerHTML = (ok ? '✅ 成功 ' : '❌ 失败 ') +
+    '<span style="font-weight:400">HTTP ' + httpStatus + '</span>';
+  bodyEl.textContent = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+}
+
+// ═══════════════════════════════════════════════════
+//  HTTP 封装
+// ═══════════════════════════════════════════════════
 async function api(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
   if (body) opts.body = JSON.stringify(body);
 
-  const res = await fetch(BASE + path, opts);
-  const data = await res.json();
-  return { status: res.status, data };
+  let res;
+  try {
+    res = await fetch(BASE + path, opts);
+  } catch (err) {
+    return { status: 0, ok: false, data: { code: -1, message: '网络连接失败：Mock 服务未启动？' } };
+  }
+
+  let data;
+  try { data = await res.json(); }
+  catch (_) { data = { code: -1, message: '响应解析失败 (HTTP ' + res.status + ')' }; }
+
+  return { status: res.status, ok: res.ok, data };
 }
 
-// ── 结果渲染 ──────────────────────────────────────────────────
-function showResult(id, ok, data) {
-  const el = document.getElementById(id);
-  el.classList.add('show');
-  const json = JSON.stringify(data, null, 2);
-  el.innerHTML = '<span class="key">HTTP</span> <span class="num">' + ok + '</span>\n' +
-    escapeHtml(json);
+// ═══════════════════════════════════════════════════
+//  订单列表 (核心新功能)
+// ═══════════════════════════════════════════════════
+async function loadOrderList() {
+  if (!authToken) {
+    document.getElementById('order-list-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">🔒</div><p>请先登录后查看订单列表</p></div>';
+    return;
+  }
+
+  document.getElementById('order-list-container').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">⏳</div><p>加载中…</p></div>';
+
+  const result = await api('GET', '/orders');
+  if (!result.ok || result.data.code !== 0) {
+    document.getElementById('order-list-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">❌</div><p>加载失败: ' +
+      (result.data.message || '未知错误') + '</p></div>';
+    return;
+  }
+
+  const orders = result.data.data.orders || [];
+  const total  = result.data.data.total || 0;
+
+  if (orders.length === 0) {
+    document.getElementById('order-list-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">📭</div><p>暂无订单，去创建第一个吧！</p></div>';
+    return;
+  }
+
+  // 构建表格
+  let html = '<table><thead><tr>' +
+    '<th>订单号</th><th>商品</th><th>数量</th><th>金额</th><th>状态</th><th>创建时间</th><th style="width:180px">操作</th>' +
+    '</tr></thead><tbody>';
+
+  for (const o of orders) {
+    const statusClass = 'status-' + o.status;
+    const statusText = {
+      'PENDING': '待支付', 'PAID': '已支付', 'CANCELLED': '已取消', 'SHIPPED': '已发货'
+    }[o.status] || o.status;
+    const time = o.createdAt ? o.createdAt.replace('T', ' ').substring(0, 19) : '--';
+
+    html += '<tr>';
+    html += '<td><strong>#' + o.orderId + '</strong></td>';
+    html += '<td>' + o.productName + '</td>';
+    html += '<td>' + o.quantity + '</td>';
+    html += '<td>¥' + o.totalAmount.toFixed(2) + '</td>';
+    html += '<td><span class="status-tag ' + statusClass + '">' + statusText + '</span></td>';
+    html += '<td style="font-size:12px;color:var(--gray-500)">' + time + '</td>';
+
+    // 根据状态显示不同操作按钮
+    html += '<td>';
+    if (o.status === 'PENDING') {
+      html += '<button class="btn btn-success btn-sm" style="margin-right:6px" onclick="goPayOrder(' + o.orderId + ',' + o.totalAmount + ')">💳 支付</button>';
+      html += '<button class="btn btn-danger btn-sm" onclick="cancelOrderFromList(' + o.orderId + ', \'' + o.productName + '\')">✕ 取消</button>';
+    } else if (o.status === 'PAID') {
+      html += '<span style="font-size:11px;color:var(--success);font-weight:500">✅ 已支付</span>';
+      html += ' <span style="font-size:11px;color:var(--gray-400)">| 不可取消</span>';
+    } else if (o.status === 'CANCELLED') {
+      html += '<span style="font-size:11px;color:var(--gray-400)">已取消，不可操作</span>';
+    } else if (o.status === 'SHIPPED') {
+      html += '<span style="font-size:11px;color:var(--primary);font-weight:500">📦 已发货</span>';
+    }
+    html += '</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  html += '<div style="padding:12px 16px;font-size:12px;color:var(--gray-400);border-top:1px solid var(--gray-100)">共 ' + total + ' 条订单</div>';
+
+  document.getElementById('order-list-container').innerHTML = html;
 }
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"(\w+)":/g,'<span class="key">"$1"</span>:')
-          .replace(/: "([^"]*)"/g,': <span class="str">"$1"</span>')
-          .replace(/: (\d+\.?\d*)/g,': <span class="num">$1</span>');
+function goPayOrder(orderId, amount) {
+  document.getElementById('pay-orderId').value = orderId;
+  document.getElementById('pay-amount').value = amount;
+  // 导航到支付中心
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector('[data-page="payment"]').classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-payment').classList.add('active');
+  document.getElementById('pageTitle').textContent = '支付中心';
 }
 
-// ── 注册 ──────────────────────────────────────────────────────
+async function cancelOrderFromList(orderId, productName) {
+  showModal(
+    '确认取消订单',
+    '确定要取消订单 #' + orderId + '（' + productName + '）吗？\n取消后不可恢复。',
+    async function() {
+      const result = await api('PUT', '/orders/' + orderId + '/cancel');
+      const ok = result.ok && result.data.code === 0;
+      if (ok) {
+        toast('订单 #' + orderId + ' 已取消');
+        loadOrderList(); // 刷新列表
+      } else {
+        toast('取消失败: ' + (result.data.message || '未知错误'), 'error');
+        loadOrderList(); // 即使失败也刷新（可能状态已变化）
+      }
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════════
+//  业务操作
+// ═══════════════════════════════════════════════════
+
 async function doRegister() {
-  const body = {
-    username: document.getElementById('reg-username').value,
-    password: document.getElementById('reg-password').value,
-  };
-  const email = document.getElementById('reg-email').value;
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const email    = document.getElementById('reg-email').value.trim();
+
+  if (!username) return toast('请输入用户名', 'warning');
+  if (username.length < 4 || username.length > 32) return toast('用户名长度须为 4-32 字符', 'warning');
+  if (!password) return toast('请输入密码', 'warning');
+  if (password.length < 6 || password.length > 20) return toast('密码长度须为 6-20 字符', 'warning');
+
+  const body = { username, password };
   if (email) body.email = email;
 
-  const { status, data } = await api('POST', '/register', body);
-  showResult('reg-result', status, data);
+  setLoading('btn-register', true);
+  const result = await api('POST', '/register', body);
+  showResult('reg-result', result.ok && result.data.code === 0, result.status, result.data);
+  if (result.ok && result.data.code === 0) toast('注册成功！用户: ' + username);
+  setLoading('btn-register', false);
 }
 
-// ── 登录 ──────────────────────────────────────────────────────
 async function doLogin() {
-  const body = {
-    username: document.getElementById('login-username').value,
-    password: document.getElementById('login-password').value,
-  };
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
 
-  const { status, data } = await api('POST', '/login', body);
-  if (data.code === 0) {
-    authToken = data.data.token;
-    refreshToken = data.data.refreshToken;
-    updateStatus();
+  if (!username) return toast('请输入用户名', 'warning');
+  if (!password) return toast('请输入密码', 'warning');
+
+  setLoading('btn-login', true);
+  const result = await api('POST', '/login', { username, password });
+  showResult('login-result', result.ok && result.data.code === 0, result.status, result.data);
+
+  if (result.ok && result.data.code === 0) {
+    authToken = result.data.data.token;
+    refreshToken = result.data.data.refreshToken;
+    tokenExpiresAt = new Date(Date.now() + result.data.data.expiresIn * 1000);
+    document.getElementById('stat-userid').textContent = 'ID: ' + result.data.data.userId;
+    updateUI();
+    toast('登录成功！欢迎 ' + result.data.data.username);
+    document.querySelector('[data-page="dashboard"]').click();
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector('[data-page="dashboard"]').classList.add('active');
   }
-  showResult('login-result', status, data);
+  setLoading('btn-login', false);
 }
 
-// ── 创建订单 ──────────────────────────────────────────────────
+function doLogout() {
+  authToken = '';
+  refreshToken = '';
+  tokenExpiresAt = null;
+  document.getElementById('stat-userid').textContent = '--';
+  document.getElementById('order-list-container').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">🔒</div><p>请先登录后查看订单列表</p></div>';
+  updateUI();
+  toast('已退出登录');
+}
+
+async function doRefresh() {
+  const rt = document.getElementById('refresh-input').value.trim();
+  if (!rt) return toast('请输入 Refresh Token', 'warning');
+
+  setLoading('btn-refresh', true);
+  const result = await api('POST', '/refresh', { refreshToken: rt });
+  showResult('refresh-result', result.ok && result.data.code === 0, result.status, result.data);
+
+  if (result.ok && result.data.code === 0) {
+    authToken = result.data.data.token;
+    tokenExpiresAt = new Date(Date.now() + result.data.data.expiresIn * 1000);
+    updateUI();
+    toast('令牌已刷新');
+  }
+  setLoading('btn-refresh', false);
+}
+
 async function doCreateOrder() {
-  const body = {
-    productId: parseInt(document.getElementById('order-productId').value),
-    quantity: parseInt(document.getElementById('order-quantity').value),
-    addressId: parseInt(document.getElementById('order-addressId').value),
-  };
-  const remark = document.getElementById('order-remark').value;
+  if (!authToken) return toast('请先登录', 'warning');
+
+  const productId = parseInt(document.getElementById('order-productId').value);
+  const quantity  = parseInt(document.getElementById('order-quantity').value);
+  const addressId = parseInt(document.getElementById('order-addressId').value);
+  const remark    = document.getElementById('order-remark').value.trim();
+
+  if (!quantity || quantity < 1)  return toast('请输入有效数量', 'warning');
+  if (!addressId || addressId < 1) return toast('请输入有效地址ID', 'warning');
+
+  const body = { productId, quantity, addressId };
   if (remark) body.remark = remark;
 
-  const { status, data } = await api('POST', '/orders', body);
-  if (data.code === 0 && data.data) {
-    // 自动填充到支付卡片
-    document.getElementById('pay-orderId').value = data.data.orderId;
-    document.getElementById('pay-amount').value = data.data.totalAmount;
+  setLoading('btn-create-order', true);
+  const result = await api('POST', '/orders', body);
+  showResult('order-result', result.ok && result.data.code === 0, result.status, result.data);
+
+  if (result.ok && result.data.code === 0) {
+    const d = result.data.data;
+    document.getElementById('pay-orderId').value = d.orderId;
+    document.getElementById('pay-amount').value = d.totalAmount;
+    toast('订单创建成功！订单号: ' + d.orderId + ' 金额: ¥' + d.totalAmount);
+    // 如果订单列表页是打开的，刷新之
+    if (document.getElementById('page-orders-list').classList.contains('active')) {
+      loadOrderList();
+    }
   }
-  showResult('order-result', status, data);
+  setLoading('btn-create-order', false);
 }
 
-// ── 支付 ──────────────────────────────────────────────────────
+async function doQueryOrder() {
+  if (!authToken) return toast('请先登录', 'warning');
+  const id = document.getElementById('query-orderId').value.trim();
+  if (!id) return toast('请输入订单ID', 'warning');
+
+  setLoading('btn-query', true);
+  const result = await api('GET', '/orders/' + id);
+  showResult('query-result', result.ok && result.data.code === 0, result.status, result.data);
+  setLoading('btn-query', false);
+}
+
+async function doCancelOrder() {
+  if (!authToken) return toast('请先登录', 'warning');
+  const id     = document.getElementById('cancel-orderId').value.trim();
+  const reason = document.getElementById('cancel-reason').value.trim();
+
+  if (!id) return toast('请输入订单ID', 'warning');
+
+  const body = {};
+  if (reason) body.reason = reason;
+
+  setLoading('btn-cancel', true);
+  const result = await api('PUT', '/orders/' + id + '/cancel', body);
+  const ok = result.ok && result.data.code === 0;
+  showResult('cancel-result', ok, result.status, result.data);
+
+  if (ok) {
+    toast('订单已取消: ' + id);
+    // 如果订单列表页打开，刷新之
+    if (document.getElementById('page-orders-list').classList.contains('active')) {
+      loadOrderList();
+    }
+  }
+  setLoading('btn-cancel', false);
+}
+
 async function doPay() {
+  if (!authToken) return toast('请先登录', 'warning');
+
+  const orderIdVal = document.getElementById('pay-orderId').value.trim();
+  const amountVal  = document.getElementById('pay-amount').value.trim();
+
+  if (!orderIdVal) return toast('请输入订单ID', 'warning');
+  if (!amountVal)  return toast('请输入金额', 'warning');
+
   const body = {
-    orderId: parseInt(document.getElementById('pay-orderId').value),
-    amount: parseFloat(document.getElementById('pay-amount').value),
+    orderId: parseInt(orderIdVal),
+    amount: parseFloat(amountVal),
     paymentMethod: document.getElementById('pay-method').value,
   };
 
-  const { status, data } = await api('POST', '/payment', body);
-  showResult('pay-result', status, data);
-}
+  setLoading('btn-pay', true);
+  const result = await api('POST', '/payment', body);
+  const ok = result.ok && result.data.code === 0;
+  showResult('pay-result', ok, result.status, result.data);
 
-// ── 查询订单 ──────────────────────────────────────────────────
-async function doQueryOrder() {
-  const id = document.getElementById('query-orderId').value;
-  const { status, data } = await api('GET', '/orders/' + id);
-  showResult('query-result', status, data);
-}
-
-// ── 取消订单 ──────────────────────────────────────────────────
-async function doCancelOrder() {
-  const id = document.getElementById('cancel-orderId').value;
-  const body = {};
-  const reason = document.getElementById('cancel-reason').value;
-  if (reason) body.reason = reason;
-
-  const { status, data } = await api('PUT', '/orders/' + id + '/cancel', body);
-  showResult('cancel-result', status, data);
-}
-
-// ── 刷新 Token ────────────────────────────────────────────────
-async function doRefresh() {
-  const body = { refreshToken: document.getElementById('refresh-input').value };
-  const { status, data } = await api('POST', '/refresh', body);
-  if (data.code === 0 && data.data && data.data.token) {
-    authToken = data.data.token;
-    updateStatus();
-  }
-  showResult('refresh-result', status, data);
-}
-
-// ── 健康检查 ──────────────────────────────────────────────────
-async function healthCheck() {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  try {
-    const res = await fetch(BASE + '/__reset', { method: 'POST' });
-    if (res.ok) {
-      dot.className = 'dot on';
-      txt.textContent = 'API 已连接';
-    } else {
-      dot.className = 'dot off';
-      txt.textContent = 'API 异常 (' + res.status + ')';
+  if (ok) {
+    toast('支付成功！交易号: ' + result.data.data.transactionId);
+    // 同步刷新订单列表和支付表单
+    document.getElementById('pay-orderId').value = '';
+    document.getElementById('pay-amount').value = '';
+    if (document.getElementById('page-orders-list').classList.contains('active')) {
+      loadOrderList();
     }
+  }
+  setLoading('btn-pay', false);
+}
+
+// ═══════════════════════════════════════════════════
+//  健康检查
+// ═══════════════════════════════════════════════════
+async function healthCheck() {
+  const dot = document.getElementById('sidebarDot');
+  const txt = document.getElementById('sidebarStatus');
+  try {
+    const res = await fetch(BASE + '/health');
+    if (res.ok) {
+      const data = await res.json();
+      dot.className = 'dot on';
+      txt.textContent = 'API v2.1 在线 (up ' + Math.round(data.data.uptime) + 's)';
+      document.getElementById('stat-status').textContent = '在线';
+      document.getElementById('stat-status').style.color = 'var(--success)';
+      document.getElementById('stat-uptime').textContent = '运行 ' + Math.round(data.data.uptime) + ' 秒';
+    } else throw new Error();
   } catch (_) {
     dot.className = 'dot off';
     txt.textContent = 'API 离线';
+    document.getElementById('stat-status').textContent = '离线';
+    document.getElementById('stat-status').style.color = 'var(--danger)';
+    document.getElementById('stat-uptime').textContent = '无法连接';
   }
 }
 
-// ── 初始化 ────────────────────────────────────────────────────
-updateStatus();
+// ═══════════════════════════════════════════════════
+//  键盘导航
+// ═══════════════════════════════════════════════════
+document.querySelectorAll('input').forEach(input => {
+  input.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    const card = input.closest('.card-body, .card');
+    if (!card) return;
+    const btn = card.querySelector('button[id^="btn-"]');
+    if (btn) btn.click();
+  });
+});
+
+// ═══════════════════════════════════════════════════
+//  初始化
+// ═══════════════════════════════════════════════════
+updateUI();
 healthCheck();
 setInterval(healthCheck, 30000);
 </script>

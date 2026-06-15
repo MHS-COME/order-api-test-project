@@ -1,8 +1,0 @@
-input_username,input_password,expected_status,expected_code,expected_message_substring
-testuser,Test@123456,200,0,success
-testuser,WrongPwd999,401,1002,用户名或密码错误
-nonexistuser,Test@123456,401,1002,用户名或密码错误
-,Test@123456,400,1001,username
-testuser,,400,1001,password
-abcd,T@1234,200,0,success
-abcdefghijklmnopqrstuvwxyz012345,Test@123456,200,0,success
