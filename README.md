@@ -223,10 +223,6 @@ run.bat --push
 node auto-create-bugs.js --report newman/report.json
 ```
 
-## 许可证
-
-MIT License
-
 ---
 
 **作者：** 马洪顺 — 独立设计与开发
