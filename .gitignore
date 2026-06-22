@@ -20,6 +20,11 @@ performance-summary.json
 # Python
 selenium_tests/__pycache__/
 selenium_tests/.pytest_cache/
+tests/**/__pycache__/
+tests/**/.pytest_cache/
+
+# WeChat API credentials
+tests/wechat/config.py
 
 # OS files
 Thumbs.db
