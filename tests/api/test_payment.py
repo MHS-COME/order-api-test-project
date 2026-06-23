@@ -10,46 +10,16 @@ from conftest import BASE_URL
 
 # ==================== 支付 正向 ====================
 
-def test_payment_success(token):
-    """TC-PAY-001 正常支付"""
+def test_payment_success(token, order):
     headers = {"Authorization": f"Bearer {token}"}
-    # 拼请求头，带上 token
-
-    create_data = {"productId": 5001, "quantity": 1, "addressId": 100}
-    # 准备创建订单的数据
-
-    create_resp = requests.post(f"{BASE_URL}/orders", json=create_data, headers=headers)
-    # 第1步：创建一笔新订单
-
-    order_id = create_resp.json()["data"]["orderId"]
-    # 从响应里取出订单 ID
-
-    total = create_resp.json()["data"]["totalAmount"]
-    # 从响应里取出订单总金额
-
-    pay_data = {"orderId": order_id, "amount": total}
-    # 组装支付数据：订单 ID + 实际金额
-
+    pay_data = {"orderId": order["orderId"], "amount": order["totalAmount"]}
     resp = requests.post(f"{BASE_URL}/payment", json=pay_data, headers=headers)
-    # 第2步：发起支付
-
     assert resp.status_code == 200
-    # HTTP 200 = 支付成功
-
     body = resp.json()
-    # 解析响应 JSON
-
     assert body["code"] == 0
-    # 业务码 0 = 成功
-
     assert body["data"]["status"] == "PAID"
-    # 支付后状态变为 PAID
-
     assert body["data"]["transactionId"].startswith("TXN")
-    # 交易流水号以 TXN 开头
-
     assert body["data"]["paidAt"] is not None
-    # 支付时间不为空
 
 
 # ==================== 支付 反向 — 参数校验 ====================
@@ -82,36 +52,15 @@ def test_payment_bad_request(token, data, expected_word):
     # 确认 message 指出了哪个字段的问题
 
 
-def test_payment_wrong_amount(token):
-    """TC-PAY-009 金额与订单不符"""
+def test_payment_wrong_amount(token, order):
     headers = {"Authorization": f"Bearer {token}"}
-    # 拼请求头
-
-    create_data = {"productId": 5001, "quantity": 1, "addressId": 100}
-    # 准备创建订单
-
-    create_resp = requests.post(f"{BASE_URL}/orders", json=create_data, headers=headers)
-    # 第1步：创建订单
-
-    order_id = create_resp.json()["data"]["orderId"]
-    # 取出订单 ID
-
     resp = requests.post(f"{BASE_URL}/payment",
-                         json={"orderId": order_id, "amount": 9999},
+                         json={"orderId": order["orderId"], "amount": 9999},
                          headers=headers)
-    # 第2步：支付，但金额故意给错（实际约 149，给 9999）
-
     assert resp.status_code == 400
-    # 400 = 金额校验失败
-
     body = resp.json()
-    # 解析响应
-
     assert body["code"] == 1005
-    # 1005 = 金额与订单不匹配
-
     assert "金额" in body["message"]
-    # message 里提到"金额"
 
 
 # ==================== 支付 反向 — 资源/越权 ====================
@@ -158,46 +107,16 @@ def test_payment_other_user(other_token):
 
 # ==================== 支付 反向 — 状态冲突 ====================
 
-def test_payment_duplicate(token):
-    """TC-PAY-006 重复支付（幂等性）"""
+def test_payment_duplicate(token, order):
     headers = {"Authorization": f"Bearer {token}"}
-    # 拼请求头
-
-    create_data = {"productId": 5001, "quantity": 1, "addressId": 100}
-    # 准备创建订单
-
-    create_resp = requests.post(f"{BASE_URL}/orders", json=create_data, headers=headers)
-    # 第1步：创建订单
-
-    order_id = create_resp.json()["data"]["orderId"]
-    # 取出订单 ID
-
-    total = create_resp.json()["data"]["totalAmount"]
-    # 取出订单金额
-
-    pay_data = {"orderId": order_id, "amount": total}
-    # 组装支付数据
-
+    pay_data = {"orderId": order["orderId"], "amount": order["totalAmount"]}
     r1 = requests.post(f"{BASE_URL}/payment", json=pay_data, headers=headers)
-    # 第一次支付 — 应该成功
-
     assert r1.status_code == 200
-    # 确认第一次支付成功
-
     r2 = requests.post(f"{BASE_URL}/payment", json=pay_data, headers=headers)
-    # 第二次支付同一订单 — 应该被拒绝
-
     assert r2.status_code == 409
-    # 409 = 状态冲突（已支付，不能重复支付）
-
     body = r2.json()
-    # 解析第二次的响应
-
     assert body["code"] == 4003
-    # 4003 = 订单已支付
-
     assert "已支付" in body["message"]
-    # message 包含"已支付"
 
 
 def test_payment_cancelled_order(token):

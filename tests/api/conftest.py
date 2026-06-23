@@ -21,6 +21,15 @@ def token():
 
 
 @pytest.fixture
+def order(token):
+    headers = {"Authorization": f"Bearer {token}"}
+    data = {"productId": 5001, "quantity": 1, "addressId": 100}
+    resp = requests.post(f"{BASE_URL}/orders", json=data, headers=headers)
+    body = resp.json()
+    return body["data"]
+
+
+@pytest.fixture
 def other_token():
     data = {"username": "alice", "password": "Alice@123"}
     resp = requests.post(f"{BASE_URL}/login", json=data)

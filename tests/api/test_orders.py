@@ -126,12 +126,9 @@ def test_get_order_no_token():
 
 # ==================== 取消订单 正向 ====================
 
-def test_cancel_order(token):
+def test_cancel_order(token, order):
     headers = {"Authorization": f"Bearer {token}"}
-    create_data = {"productId": 5001, "quantity": 1, "addressId": 100}
-    create_resp = requests.post(f"{BASE_URL}/orders", json=create_data, headers=headers)
-    order_id = create_resp.json()["data"]["orderId"]
-    resp = requests.put(f"{BASE_URL}/orders/{order_id}/cancel", headers=headers)
+    resp = requests.put(f"{BASE_URL}/orders/{order['orderId']}/cancel", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["code"] == 0
@@ -139,12 +136,9 @@ def test_cancel_order(token):
     assert body["data"]["cancelledAt"] is not None
 
 
-def test_cancel_order_with_reason(token):
+def test_cancel_order_with_reason(token, order):
     headers = {"Authorization": f"Bearer {token}"}
-    create_data = {"productId": 5001, "quantity": 1, "addressId": 100}
-    create_resp = requests.post(f"{BASE_URL}/orders", json=create_data, headers=headers)
-    order_id = create_resp.json()["data"]["orderId"]
-    resp = requests.put(f"{BASE_URL}/orders/{order_id}/cancel", headers=headers,
+    resp = requests.put(f"{BASE_URL}/orders/{order['orderId']}/cancel", headers=headers,
                         json={"reason": "不想要了"})
     assert resp.status_code == 200
     body = resp.json()
