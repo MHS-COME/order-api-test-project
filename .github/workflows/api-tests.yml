@@ -212,3 +212,40 @@ jobs:
             exit 1
           fi
           echo "All 6 modules passed!"
+
+  # ═══════════════════════════════════════════════════════════
+  # CD — 测试通过后构建并推送 Docker 镜像
+  # 仅在 push 到 main 分支时触发
+  # ═══════════════════════════════════════════════════════════
+  cd:
+    needs: api-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/order-api:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/order-api:latest
+
+      # ──────────────────────────────────────────────────────
+      # 可选：自动部署到服务器（需要时取消注释并配置 Secrets）
+      # 需要 GitHub Secrets: SERVER_HOST, SERVER_USER, SERVER_SSH_KEY
+      # ──────────────────────────────────────────────────────
+      # - name: Deploy to server
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.SERVER_HOST }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     key: ${{ secrets.SERVER_SSH_KEY }}
+      #     script: |
+      #       docker pull ${{ secrets.DOCKER_USERNAME }}/order-api:latest
+      #       docker stop order-api || true
+      #       docker rm order-api || true
+      #       docker run -d --name order-api -p 3000:3000 ${{ secrets.DOCKER_USERNAME }}/order-api:latest
