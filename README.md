@@ -1,228 +1,257 @@
 # OrderAPI Test Platform
 
-全链路订单系统 API 自动化测试 + UI 自动化测试平台，覆盖认证、下单、支付、取消完整业务闭环，集成性能压测、专业报告、缺陷双向同步。
+全链路订单系统自动化测试平台 — Mock 后端 + 接口测试 + UI 测试 + 性能测试 + CI/CD + Docker 部署，覆盖认证、订单、支付完整业务闭环。
 
-[![CI Status](https://github.com/MHS-COME/order-api-test-project/actions/workflows/api-tests.yml/badge.svg)](https://github.com/MHS-COME/order-api-test-project/actions/workflows/api-tests.yml)
+[![CI/CD](https://github.com/MHS-COME/order-api-test-project/actions/workflows/api-tests.yml/badge.svg)](https://github.com/MHS-COME/order-api-test-project/actions/workflows/api-tests.yml)
 
 ## 技术栈
 
-| 层级 | 技术 | 用途 |
-|------|------|------|
-| Mock 后端 | Node.js, Express, jsonwebtoken, lowdb | JWT 双 token 认证 + 订单/支付 REST API |
-| API 测试 | Postman, Newman, newman-reporter-html | 模块化接口测试，CSV 数据驱动 |
-| UI 测试 | Selenium WebDriver, pytest, webdriver-manager | Web 端注册/登录/下单/支付流程自动化 |
-| 性能测试 | k6 | 渐进式压测，自定义指标 + 阈值告警 |
-| 测试报告 | Allure, Newman HTML | 专业可视化报告，历史趋势追踪 |
-| 缺陷管理 | TAPD API | 失败自动建 Bug，通过自动关闭（双向同步） |
-| CI/CD | GitHub Actions | 推送即跑，制品留存 30 天 |
-| 前端 | 原生 HTML/CSS/JS (SPA) | 订单管理仪表盘，侧边栏多页面导航 |
+| 层级 | 技术 |
+|------|------|
+| Mock 后端 | Node.js + Express + jsonwebtoken + lowdb |
+| API 测试 | pytest + requests、Postman + Newman |
+| UI 测试 | Selenium WebDriver + pytest + webdriver-manager |
+| 性能测试 | k6（3 阶段渐进式压测） |
+| 报告 | Allure、Newman HTML Reporter |
+| 缺陷管理 | TAPD API（失败自动建 Bug + 通过自动关闭） |
+| CI/CD | GitHub Actions（6 模块分步测试 + Docker 构建推送） |
+| 容器化 | Docker（node:18-alpine） |
+| 前端管理端 | 原生 HTML/CSS/JS SPA（仪表盘 + 7 功能页面） |
 
 ## 项目结构
 
 ```
 OrderAPITestProject/
 ├── .github/workflows/
-│   └── api-tests.yml              # CI 流水线（6 模块 + TAPD 同步）
+│   └── api-tests.yml                  # CI/CD 流水线（6 模块测试 + Docker 构建推送）
 ├── mock-server/
-│   ├── server.js                  # Express 自定义路由 + JWT 鉴权中间件
-│   ├── db.json                    # 种子数据（6 用户 + 10 订单，覆盖各类状态）
-│   └── package.json               # Node 依赖（json-server, jsonwebtoken）
+│   ├── server.js                      # Express 路由 + JWT 认证 + 订单/支付 API
+│   ├── db.json                        # 种子数据（6 用户 + 10 订单）
+│   └── package.json
 ├── postman/
-│   ├── order_api_collection.json  # 完整测试集合（36 请求，191 断言）
-│   ├── collections/               # 6 个拆分模块（CI 分步执行）
-│   ├── data/                      # CSV 数据驱动文件（login_data, order_data）
-│   └── environments/              # 环境变量（base_url, auth_token 等）
-├── frontend/
-│   └── index.html                 # SPA 管理端 v2.1（仪表盘 + 7 功能页面）
+│   ├── collections/                   # 6 个独立模块集合（CI 分步执行）
+│   │   ├── 00-注册模块.postman_collection.json
+│   │   ├── 01-登录模块.postman_collection.json
+│   │   ├── 02-订单模块.postman_collection.json
+│   │   ├── 03-端到端E2E.postman_collection.json
+│   │   ├── 04-支付模块.postman_collection.json
+│   │   └── 05-安全测试模块.postman_collection.json
+│   ├── data/                          # CSV 数据驱动文件
+│   └── environments/                  # 环境变量配置
+├── tests/api/                         # pytest 接口测试
+│   ├── conftest.py                    # 公共夹具（token/order/reset）
+│   ├── test_register.py              # 注册（5 条）
+│   ├── test_login.py                 # 登录（6 条）
+│   ├── test_orders.py                # 订单（16 条）
+│   ├── test_payment.py               # 支付（9 条）
+│   ├── test_refresh.py               # Token 刷新（5 条）
+│   ├── test_security.py              # 安全测试（14 条）
+│   ├── test_e2e.py                   # 端到端（1 条）
+│   └── test_health.py                # 健康检查（1 条）
 ├── selenium_tests/
-│   ├── test_ui.py                 # 21 个 UI 自动化用例（8 个测试类）
-│   ├── conftest.py                # pytest 夹具 + WebDriver 生命周期管理
-│   └── requirements.txt           # Python 依赖
-├── docs/
-│   ├── 需求分析.md                 # 接口规格与业务状态码定义
-│   ├── 测试计划.md                 # 测试策略、资源安排、风险应对
-│   ├── 测试用例.md                 # 详细测试用例（等价类 + 边界值）
-│   └── 测试报告.md                 # 测试执行报告模板
-├── performance-test.js            # k6 压测脚本（3 阶段渐进式）
-├── newman-to-allure.js            # Newman JSON → Allure 结果转换
-├── auto-create-bugs.js            # TAPD 双向缺陷同步（自动提单 + 自动关闭）
-├── run.bat                        # 统一入口（--push / --server 模式）
-├── tapd-config.example.json       # TAPD 凭证模板
-├── PRINCIPLES.md                  # 项目设计原则与维护指南
-├── 面试准备文档.md                 # 面试 Q&A + 知识点梳理
-└── README.md
+│   ├── test_ui.py                     # UI 自动化（21 条，9 个测试类）
+│   ├── conftest.py                    # WebDriver 生命周期管理
+│   └── requirements.txt
+├── frontend/
+│   └── index.html                     # SPA 管理端 v2.1
+├── performance-test.js                # k6 压测脚本
+├── newman-to-allure.js                # Newman JSON → Allure 结果转换
+├── auto-create-bugs.js                # TAPD 双向缺陷同步
+├── Dockerfile                         # Mock 服务容器化
+├── .dockerignore
+├── run.bat                            # 统一测试入口
+├── tapd-config.example.json
+└── docs/                              # 需求分析 / 测试计划 / 测试用例 / 测试报告
 ```
 
 ## 快速开始
 
 ### 环境要求
 
-| 组件 | 版本 | 说明 |
+| 组件 | 版本 | 用途 |
 |------|------|------|
 | Node.js | ≥ 16.x | Mock 服务 + Newman |
-| Python | ≥ 3.9 | Selenium UI 测试 |
-| Chrome | 最新稳定版 | Selenium WebDriver |
+| Python | ≥ 3.9 | pytest + Selenium |
+| Chrome | 最新版 | Selenium WebDriver |
 | k6 | ≥ 0.50 | 性能测试（可选） |
-| Allure | ≥ 2.33 | 报告生成（可选） |
+| Docker | 任意 | 容器化运行（可选） |
 
-### 1. 克隆并安装依赖
+### 1. 安装依赖
 
 ```bash
 git clone https://github.com/MHS-COME/order-api-test-project.git
 cd order-api-test-project
 
-# Node 依赖（Mock 服务 + 全局工具）
+# Node 依赖
 cd mock-server && npm install && cd ..
 npm install -g newman newman-reporter-html
 
-# Python 依赖（Selenium）
+# Python 依赖
+pip install pytest requests
 cd selenium_tests && pip install -r requirements.txt && cd ..
 ```
 
 ### 2. 启动 Mock 服务
 
 ```bash
-cd mock-server
-node server.js
-# → http://localhost:3000  |  测试账号: testuser / Test@123456
+# 方式一：直接启动
+cd mock-server && node server.js
+
+# 方式二：Docker 启动
+docker build -t order-api .
+docker run -d -p 3000:3000 order-api
 ```
 
-新开一个终端确认服务正常：
+服务跑在 `http://localhost:3000`，测试账号 `testuser / Test@123456`。
 
 ```bash
 curl http://localhost:3000/health
+# {"code":0,"message":"success","data":{"status":"UP","uptime":...}}
 ```
 
-### 3. 运行 API 测试
+### 3. 运行测试
 
 ```bash
-# 方式一：统一入口（推荐）
-run.bat                  # 重置数据 → 运行测试 → HTML 报告
+# ===== pytest（推荐） =====
+cd tests/api
+pytest -v                                    # 全部 57 条
+pytest -v -k "test_login"                    # 指定模块
+pytest -v -k "test_create_order_success"     # 指定用例
 
-# 方式二：Newman CLI
-newman run postman/order_api_collection.json ^
-  -e postman/environments/dev.environment.json ^
-  -r cli,html ^
-  --reporter-html-export newman/report.html
-```
+# ===== Newman =====
+run.bat                                      # 全部 6 模块
+newman run postman/collections/01-登录模块.postman_collection.json \
+  -d postman/data/login_data.csv \
+  -e postman/environments/dev.environment.json
 
-### 4. 运行 UI 测试
-
-```bash
+# ===== Selenium UI =====
 cd selenium_tests
-
-# 全部用例
 pytest test_ui.py -v
-
-# 指定模块
 pytest test_ui.py -v -k "TestLoginUI"
-pytest test_ui.py -v -k "TestOrderListUI"
 
-# 无头模式（CI）
-pytest test_ui.py -v --headless
-```
-
-## 测试模块说明
-
-### API 测试（Postman / Newman）
-
-| 模块 | 文件 | 用例数 | 说明 |
-|------|------|--------|------|
-| 00-注册 | `00-注册模块` | 5 | 正向注册 + 边界值 + 重复用户名 |
-| 01-登录 | `01-登录模块` | 10 | DDT 数据驱动，7 次迭代 × 11 请求 |
-| 02-订单 | `02-订单模块` | 13 | 创建/查询/取消，6 次迭代 × 35 请求 |
-| 03-E2E | `03-端到端E2E` | 5 | 登录→创建→支付→查询完整链路 |
-| 04-支付 | `04-支付模块` | 8 | 正向支付 + 金额校验 + 超时检测 |
-| 05-安全 | `05-安全测试模块` | 14 | SQL注入/XSS/越权/JWT攻击/参数污染 |
-
-> **合计：36 请求，46 测试脚本，191 断言**
-
-### UI 测试（Selenium / pytest）
-
-| 测试类 | 用例数 | 覆盖场景 |
-|--------|--------|----------|
-| TestLoginUI | 3 | 正向登录、错误密码、空字段提示 |
-| TestRegisterUI | 2 | 注册成功、用户名过短校验 |
-| TestCreateOrderUI | 2 | 创建订单、未登录拦截 |
-| TestOrderListUI | 5 | 列表加载、状态标签、支付按钮跳转、取消弹窗确认 |
-| TestCancelBoundary | 2 | PAID 订单拒止取消、CANCELLED 重复取消拒止 |
-| TestPaymentUI | 2 | 正向支付、空订单号校验 |
-| TestFullE2E | 1 | 登录→创建→支付→列表确认 全链路 |
-| TestNavigation | 1 | 侧边栏 7 页面切换 |
-| TestDashboard | 2 | 统计卡片、健康检查 |
-
-> **合计：21 个 UI 自动化用例，覆盖关键用户旅程**
-
-### 性能测试（k6）
-
-```bash
+# ===== k6 性能 =====
 k6 run performance-test.js
 ```
 
-- **3 阶段渐进式**：30s 爬坡 → 1min 20 VU 保持 → 30s 下降
-- **自定义指标**：login / order_create / payment / e2e_flow 耗时
-- **阈值告警**：p95 < 2000ms（总请求），p95 < 1000ms（登录/支付）
+## API 端点
 
-## 核心亮点
+| 端点 | 认证 | 说明 |
+|------|------|------|
+| `POST /register` | 无 | 用户注册（用户名 4-32，密码 6-64） |
+| `POST /login` | 无 | 登录，返回 access token + refresh token |
+| `POST /refresh` | 无 | 用 refresh token 换新 access token |
+| `POST /orders` | Bearer | 创建订单 |
+| `GET /orders` | Bearer | 当前用户订单列表 |
+| `GET /orders/:id` | Bearer | 订单详情（含越权校验） |
+| `PUT /orders/:id/cancel` | Bearer | 取消订单（状态机校验） |
+| `POST /payment` | Bearer | 支付（超时检测 + 重复支付检测） |
+| `GET /health` | 无 | 健康检查 |
+| `POST /__reset` | 无 | 重置种子数据 |
 
-1. **JWT 双 token 认证** — access token（1h）+ refresh token（7d），auth 中间件统一拦截 `/orders/*` 和 `/payment/*`
-2. **支付幂等性与超时关闭** — 已支付订单拒绝重复支付（code=4005），创建超 30 分钟自动关闭（code=4004）
-3. **数据驱动测试** — CSV 文件驱动登录和订单模块，覆盖多组用户名/密码/商品/数量的正交组合
-4. **安全测试全覆盖** — SQL 注入、XSS 脚本注入、越权访问、JWT 算法篡改/none 算法/签名缺失
-5. **全自动缺陷闭环** — CI 执行后自动：失败用例 → TAPD 建 Bug（含去重）；通过用例 → 自动关闭历史 Bug
-6. **Allure 专业报告** — `newman-to-allure.js` 将 Newman 结果转为 Allure 格式，支持历史趋势和附件
-7. **Selenium UI 自动化** — 21 个用例覆盖 Web 端完整用户旅程，含边界状态（PAID 不能取消、CANCELLED 不可操作）
-8. **模块化测试组织** — API 测试 6 模块独立可运行，CI 分步执行互不影响（`continue-on-error: true`）
+**业务错误码：** `1001` 参数校验 | `1002` 用户名密码错误 | `2001` 未认证 | `3001` 资源不存在 | `3002` 越权 | `4001-4005` 状态冲突
 
-## 生成 Allure 报告
+## 测试覆盖
 
-```bash
-# 1. 先跑 Newman 生成 JSON 报告
-newman run postman/order_api_collection.json ^
-  -e postman/environments/dev.environment.json ^
-  -r json --reporter-json-export newman/results.json
+### pytest 接口测试（57 条）
 
-# 2. 转换为 Allure 结果
-node newman-to-allure.js --report newman/results.json
+| 模块 | 文件 | 用例数 | 覆盖 |
+|------|------|--------|------|
+| 健康检查 | test_health.py | 1 | 服务存活 |
+| 注册 | test_register.py | 5 | 正向 + 边界 + 重复用户名 |
+| 登录 | test_login.py | 6 | 4 组参数化正向 + 缺字段 + 错误密码 |
+| 订单 | test_orders.py | 16 | 创建/查询/取消，正向 + 参数校验 + 越权 + 状态冲突 |
+| 支付 | test_payment.py | 9 | 正向 + 缺字段 + 金额错误 + 重复支付 + 超时 + 已取消 |
+| Token 刷新 | test_refresh.py | 5 | 正向刷新 + 无效 token + 类型校验 |
+| 安全 | test_security.py | 14 | SQL 注入、XSS、越权、JWT 攻击、参数污染 |
+| 端到端 | test_e2e.py | 1 | 注册→登录→创建→支付→查询完整链路 |
 
-# 3. 生成 Allure HTML 报告
-allure generate allure-results -o allure-report --clean
+### Postman / Newman 测试（6 模块）
 
-# 4. 打开报告
-allure open allure-report
+| 模块 | 运行方式 | 说明 |
+|------|----------|------|
+| 00-注册 | 独立执行 | 5 请求 / 24 断言 |
+| 01-登录 | CSV DDT，7 次迭代 | 11 请求 / 376 断言，导出 token |
+| 02-订单 | CSV DDT，6 次迭代 | 35 请求 / 795 断言，复用登录态 |
+| 03-E2E | 独立执行 | 6 请求 / 24 断言，自包含 |
+| 04-支付 | 独立执行 | 8 请求 / 36 断言，动态创建订单 |
+| 05-安全 | 独立执行 | 14 请求 / 40+ 断言 |
+
+### Selenium UI 测试（21 条）
+
+| 测试类 | 用例数 | 场景 |
+|--------|--------|------|
+| TestLoginUI | 3 | 正向登录、错误密码、空字段 |
+| TestRegisterUI | 2 | 注册成功、用户名过短 |
+| TestCreateOrderUI | 2 | 创建订单、未登录拦截 |
+| TestOrderListUI | 5 | 列表加载、状态标签、支付跳转、取消弹窗 |
+| TestCancelBoundary | 2 | PAID 取消拒止、CANCELLED 重复取消 |
+| TestPaymentUI | 2 | 正向支付、空订单号 |
+| TestFullE2E | 1 | 全链路：登录→创建→支付→确认 |
+| TestNavigation | 1 | 7 个页面切换 |
+| TestDashboard | 2 | 统计卡片 + 健康检查 |
+
+### 性能测试（k6）
+
+```
+30s 爬坡 → 60s 保持 20 VU → 30s 下降
+自定义指标：login / order_create / payment / e2e 耗时
+阈值：总请求 p95 < 2000ms，登录/支付 p95 < 1000ms
 ```
 
-## GitHub CI 配置
+## CI/CD
 
-项目已配置 `.github/workflows/api-tests.yml`，push 到 `main` 或 PR 时自动运行 6 个测试模块。
+push 到 main 或发起 PR 自动触发，在 [GitHub Actions](https://github.com/MHS-COME/order-api-test-project/actions) 查看。
 
-### Secrets 配置
+```
+api-tests（6 模块并行可独立失败）
+  ├── 00-注册 → 01-登录(DDT) → 02-订单(DDT) → 03-E2E → 04-支付 → 05-安全
+  ├── 上传报告产物（30 天）
+  └── TAPD 缺陷同步（失败建 Bug + 通过关 Bug）
+       │
+       ▼
+cd（仅 push main，依赖 api-tests 通过）
+  └── Docker 构建 → 推送镜像
+```
 
-如需 TAPD 缺陷同步功能，在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中添加：
+### GitHub Secrets
 
 | Secret | 说明 |
 |--------|------|
-| `TAPD_WORKSPACE_ID` | TAPD 项目 ID（URL 中 `workspaces/` 后的数字） |
+| `TAPD_WORKSPACE_ID` | TAPD 项目 ID |
 | `TAPD_API_USER` | TAPD API 账号 |
-| `TAPD_API_PASSWORD` | TAPD API 密码（与登录密码不同，需在开放平台申请） |
+| `TAPD_API_PASSWORD` | TAPD API 密码 |
+| `DOCKER_USERNAME` | Docker Hub 用户名 |
+| `DOCKER_TOKEN` | Docker Hub Access Token |
 
-CI 最后一步会自动完成失败建 Bug + 通过关 Bug 的双向同步。
-
-## TAPD 本地使用
+## Allure 报告
 
 ```bash
-# 1. 复制配置模板
-copy tapd-config.example.json tapd-config.json
+newman run postman/collections/02-订单模块.postman_collection.json \
+  -e postman/environments/dev.environment.json \
+  -r json --reporter-json-export newman/results.json
 
-# 2. 编辑 tapd-config.json 填入真实凭证
-
-# 3. 运行测试 + 推送缺陷
-run.bat --push
-
-# 或者先自己跑 Newman，再推送已有报告
-node auto-create-bugs.js --report newman/report.json
+node newman-to-allure.js --report newman/results.json
+allure generate allure-results -o allure-report --clean
+allure open allure-report
 ```
 
----
+## TAPD 缺陷同步
 
-**作者：** 马洪顺 — 独立设计与开发
+```bash
+# 从模板创建配置
+cp tapd-config.example.json tapd-config.json
+# 编辑填入真实凭证后：
+
+node auto-create-bugs.js --reports-dir newman/reports
+```
+
+失败用例 → 自动创建 TAPD 缺陷（含请求/响应详情）；通过用例 → 自动关闭历史缺陷。使用 `newman/.reported-bugs.json` 去重。
+
+## Docker
+
+```bash
+docker build -t order-api .
+docker run -d -p 3000:3000 order-api
+```
+
+镜像基于 `node:18-alpine`，仅包含 mock-server，测试文件通过 `.dockerignore` 排除。
