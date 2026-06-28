@@ -7,6 +7,7 @@ const db = router.db;
 server.use(jsonServer.defaults({ noCors: false }));
 server.use(jsonServer.bodyParser);
 
+const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
@@ -25,7 +26,7 @@ const swaggerOptions = {
       }
     }
   },
-  apis: ['./server.js']
+  apis: [__filename]
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
