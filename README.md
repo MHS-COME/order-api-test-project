@@ -272,17 +272,23 @@ docker run -d -p 3000:3000 order-api
 
 ## 项目截图
 
-### Newman 测试失败 — 发现安全漏洞
+### Newman 测试失败 — 发现 JWT 认证绕过
 
-![Newman 失败截图](./docs/images/newman-fail.png)
+![Newman JWT 失败](./docs/images/newman-fail-jwt.png)
 
-安全测试模块发现 JWT None 算法绕过、越权访问、幂等性缺失等漏洞，共 90 条断言失败。
+安全测试模块发现 JWT None 算法绕过漏洞，攻击者可伪造任意用户 Token 调用订单创建接口。
+
+### Newman 测试失败 — 幂等性缺失
+
+![Newman 支付失败](./docs/images/newman-fail-payment.png)
+
+订单/支付模块发现状态机缺陷：已发货订单可被取消、重复支付覆盖交易记录、已取消订单可再次取消。
 
 ### Newman 测试全绿 — 漏洞修复后回归
 
 ![Newman 全绿截图](./docs/images/newman-pass.png)
 
-5 个漏洞修复后，全部 6 模块 135 条断言 PASS。
+5 个漏洞修复后，全部 6 模块断言全部 PASS。
 
 ### Allure 全绿报告
 
