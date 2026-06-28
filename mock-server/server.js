@@ -7,6 +7,29 @@ const db = router.db;
 server.use(jsonServer.defaults({ noCors: false }));
 server.use(jsonServer.bodyParser);
 
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'OrderAPI Mock Server',
+      version: '1.0.0',
+      description: '订单系统 Mock 接口文档 — JWT 双 token 认证 · 订单状态机 · 支付幂等性校验'
+    },
+    servers: [{ url: 'http://localhost:3000', description: '本地 Mock 服务' }],
+    components: {
+      securitySchemes: {
+        BearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+      }
+    }
+  },
+  apis: ['./server.js']
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 const seed = JSON.parse(JSON.stringify(db.getState()));
 
 const JWT_SECRET = 'order-api-mock-jwt-secret-2026';
@@ -53,6 +76,29 @@ server.use((req, res, next) => {
 });
 
 // ── POST /register ────────────────────────────────────────
+
+/**
+ * @swagger
+ * /register:
+ *   post:
+ *     tags: [认证]
+ *     summary: 用户注册
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string, minLength: 4, maxLength: 32, example: newuser }
+ *               password: { type: string, minLength: 6, maxLength: 20, example: Pass@123 }
+ *               email: { type: string, format: email, example: user@example.com, description: 可选 }
+ *     responses:
+ *       201: { description: 注册成功 }
+ *       400: { description: 参数校验失败 — code 1001 }
+ *       409: { description: 用户名已存在 — code 1003 }
+ */
 server.post('/register', (req, res) => {
   const { username, password, email } = req.body;
   if (!username) return bad(res, '参数校验失败：username 不能为空');
@@ -76,6 +122,34 @@ server.post('/register', (req, res) => {
 });
 
 // ── POST /login ───────────────────────────────────────────
+
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     tags: [认证]
+ *     summary: 用户登录
+ *     description: 验证用户名密码，返回 access token + refresh token。`?expired=1` 可生成过期 token 供测试。
+ *     parameters:
+ *       - in: query
+ *         name: expired
+ *         schema: { type: integer, example: 0 }
+ *         description: 设为 1 返回已过期 token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string, example: testuser }
+ *               password: { type: string, example: Test@123456 }
+ *     responses:
+ *       200: { description: 登录成功，返回 token + refreshToken }
+ *       400: { description: 参数校验失败 — code 1001 }
+ *       401: { description: 用户名或密码错误 — code 1002 }
+ */
 server.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (!username) return bad(res, '参数校验失败：username 不能为空');
@@ -110,6 +184,27 @@ server.post('/login', (req, res) => {
 });
 
 // ── POST /refresh ─────────────────────────────────────────
+
+/**
+ * @swagger
+ * /refresh:
+ *   post:
+ *     tags: [认证]
+ *     summary: 刷新 Token
+ *     description: 用 refresh token 换新的 access token。
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string, example: eyJhbGciOi... }
+ *     responses:
+ *       200: { description: 刷新成功 }
+ *       401: { description: 无效或已过期的刷新令牌 — code 2001/2002 }
+ */
 server.post('/refresh', (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return bad(res, '参数校验失败：refreshToken 不能为空');
@@ -156,6 +251,32 @@ const val = (v, label, min, max) => {
 };
 
 // ── POST /orders ──────────────────────────────────────────
+
+/**
+ * @swagger
+ * /orders:
+ *   post:
+ *     tags: [订单]
+ *     summary: 创建订单
+ *     security: [{ BearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [productId, quantity, addressId]
+ *             properties:
+ *               productId: { type: integer, minimum: 1, example: 5001, description: 5001=蓝牙耳机 5002=键盘 5003=数据线 }
+ *               quantity: { type: integer, minimum: 1, maximum: 999, example: 2 }
+ *               addressId: { type: integer, minimum: 1, example: 100 }
+ *               remark: { type: string, maxLength: 200, example: 请尽快发货, description: 可选 }
+ *     responses:
+ *       201: { description: 创建成功，返回订单详情 }
+ *       400: { description: 参数校验失败 — code 1001 }
+ *       401: { description: 未认证 — code 2001 / 令牌过期 — code 2002 }
+ *       404: { description: 商品不存在 — code 2003 }
+ */
 server.post('/orders', (req, res) => {
   const { productId, quantity, addressId, remark } = req.body;
   const err = val(productId, 'productId', 1, Infinity) || val(quantity, 'quantity', 1, 999) || val(addressId, 'addressId', 1, Infinity);
@@ -184,6 +305,41 @@ server.post('/orders', (req, res) => {
 });
 
 // ── PUT /orders/:id/cancel ────────────────────────────────
+
+/**
+ * @swagger
+ * /orders/{id}/cancel:
+ *   put:
+ *     tags: [订单]
+ *     summary: 取消订单
+ *     description: 仅 PENDING 状态可取消。PAID/SHIPPED/CANCELLED 均拒绝，附带取消原因可选。
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string, maxLength: 200, example: 不想要了, description: 取消原因（可选） }
+ *     responses:
+ *       200: { description: 取消成功，返回 CANCELLED + cancelledAt }
+ *       401: { description: 未认证 — code 2001 }
+ *       403: { description: 越权 — code 3002 }
+ *       404: { description: 订单不存在 — code 3001 }
+ *       409:
+ *         description: 状态冲突
+ *         content:
+ *           application/json:
+ *             examples:
+ *               shipped: { value: { code: 4001, message: "当前订单状态不允许取消", data: { currentStatus: "SHIPPED" } } }
+ *               cancelled: { value: { code: 4002, message: "订单已被取消，无法重复操作" } }
+ *               paid: { value: { code: 4005, message: "订单已支付，不允许取消" } }
+ */
 server.put('/orders/:id/cancel', (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0) return bad(res, '参数校验失败：id 必须为正整数');
@@ -202,6 +358,26 @@ server.put('/orders/:id/cancel', (req, res) => {
 });
 
 // ── GET /orders/:id ───────────────────────────────────────
+
+/**
+ * @swagger
+ * /orders/{id}:
+ *   get:
+ *     tags: [订单]
+ *     summary: 查询订单详情
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *     responses:
+ *       200: { description: 查询成功 }
+ *       400: { description: ID 非法 — code 1001 }
+ *       401: { description: 未认证 — code 2001 }
+ *       403: { description: 越权 — code 3002 }
+ *       404: { description: 订单不存在 — code 3001 }
+ */
 server.get('/orders/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0) return bad(res, '参数校验失败：id 必须为正整数');
@@ -225,6 +401,34 @@ server.get('/orders', (req, res) => {
 });
 
 // ── POST /payment ─────────────────────────────────────────
+
+/**
+ * @swagger
+ * /payment:
+ *   post:
+ *     tags: [支付]
+ *     summary: 支付订单
+ *     description: 金额须匹配、订单须为 PENDING 且创建不超过 30 分钟。
+ *     security: [{ BearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [orderId, amount]
+ *             properties:
+ *               orderId: { type: integer, example: 10001 }
+ *               amount: { type: number, example: 149.50 }
+ *               paymentMethod: { type: string, example: card, description: 可选 }
+ *     responses:
+ *       200: { description: 支付成功，返回 transactionId + PAID }
+ *       400: { description: 参数缺失 — code 1001 / 金额不符 — code 1005 }
+ *       401: { description: 未认证 — code 2001 }
+ *       403: { description: 越权 — code 3002 }
+ *       404: { description: 订单不存在 — code 3001 }
+ *       409: { description: 已支付 — code 4003 / 超时 — code 4004 }
+ */
 server.post('/payment', (req, res) => {
   const { orderId, amount, paymentMethod } = req.body;
   if (orderId === undefined || orderId === null) return bad(res, '参数校验失败：orderId 不能为空');
@@ -253,6 +457,25 @@ server.post('/payment', (req, res) => {
 });
 
 // ── GET /payment/:orderId ─────────────────────────────────
+
+/**
+ * @swagger
+ * /payment/{orderId}:
+ *   get:
+ *     tags: [支付]
+ *     summary: 查询支付状态
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *     responses:
+ *       200: { description: 查询成功 }
+ *       401: { description: 未认证 — code 2001 }
+ *       403: { description: 越权 — code 3002 }
+ *       404: { description: 订单不存在 — code 3001 }
+ */
 server.get('/payment/:orderId', (req, res) => {
   const orderId = parseInt(req.params.orderId, 10);
   if (isNaN(orderId) || orderId <= 0) return bad(res, '参数校验失败：orderId 必须为正整数');
@@ -304,10 +527,23 @@ router.render = (req, res) => {
 server.get('/health', (req, res) => ok(res, { status: 'UP', uptime: process.uptime() }));
 
 // ── POST /__reset — restore seed data in-memory ───────────
+
+/**
+ * @swagger
+ * /__reset:
+ *   post:
+ *     tags: [系统]
+ *     summary: 重置种子数据
+ *     responses:
+ *       200: { description: 重置成功 }
+ */
 server.post('/__reset', (req, res) => {
   db.setState(JSON.parse(JSON.stringify(seed)));
   ok(res, { message: '数据已重置' });
 });
+
+// ── Swagger UI ────────────────────────────────────────────
+server.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 server.use(router);
 

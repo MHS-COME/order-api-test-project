@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "json-server": "^0.17.4",
-    "jsonwebtoken": "^9.0.0"
+    "jsonwebtoken": "^9.0.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   }
 }
