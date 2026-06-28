@@ -255,3 +255,49 @@ docker run -d -p 3000:3000 order-api
 ```
 
 镜像基于 `node:18-alpine`，仅包含 mock-server，测试文件通过 `.dockerignore` 排除。
+
+## 缺陷修复记录
+
+安全测试阶段发现并修复了 5 个漏洞，含认证绕过、越权、幂等性缺失等常见 Web 安全问题：
+
+| 漏洞 | 等级 | 状态 |
+|------|------|------|
+| JWT None 算法绕过（伪造任意用户 Token） | 高危 | 已修复 |
+| 水平越权（查询/取消/支付他人订单） | 高危 | 已修复 |
+| 支付幂等性缺失（重复支付覆盖交易记录） | 中危 | 已修复 |
+| 订单状态机漏洞（已取消订单可重复取消） | 中危 | 已修复 |
+| 明文密码存储 | 中危 | 已修复 |
+
+详见 [docs/BUG_FIX_RECORD.md](docs/BUG_FIX_RECORD.md)（含复现步骤、根因分析、修复前后代码对比、回归验证结果）。
+
+## 项目截图
+
+### Newman 测试失败 — 发现安全漏洞
+
+![Newman 失败截图](./docs/images/newman-fail.png)
+
+安全测试模块发现 JWT None 算法绕过、越权访问、幂等性缺失等漏洞，共 90 条断言失败。
+
+### Newman 测试全绿 — 漏洞修复后回归
+
+![Newman 全绿截图](./docs/images/newman-pass.png)
+
+5 个漏洞修复后，全部 6 模块 135 条断言 PASS。
+
+### Allure 全绿报告
+
+![Allure 报告](./docs/images/allure-report.png)
+
+全部测试通过后的 Allure 趋势报告，0 失败、0 中断。
+
+### k6 性能测试报告
+
+![k6 报告](./docs/images/k6-report.png)
+
+3 阶段渐进式压测：30s 爬坡 → 60s 保持 20 VU → 30s 下降。p95 耗时 < 2000ms，业务失败率 < 10%。
+
+### 前端管理端
+
+![前端管理端](./docs/images/frontend.png)
+
+原生 SPA 测试管理端，仪表盘 + 7 功能页面，支持登录/注册/下单/支付/订单管理。
