@@ -6,10 +6,7 @@ node_modules/
 tapd-config.json
 
 # Newman test output (generated)
-newman/report.json
-newman/report.html
-newman/results.json
-newman/.reported-bugs.json
+newman/
 
 # Allure (generated + CLI tool)
 allure-report/
@@ -18,10 +15,8 @@ allure-2.42.1/
 performance-summary.json
 
 # Python
-selenium_tests/__pycache__/
-selenium_tests/.pytest_cache/
-tests/**/__pycache__/
-tests/**/.pytest_cache/
+__pycache__/
+.pytest_cache/
 
 # WeChat API credentials
 tests/wechat/config.py
@@ -32,3 +27,20 @@ Desktop.ini
 *.swp
 *.swo
 面试准备文档.md
+
+# Coverage
+.nyc_output/
+coverage/
+
+# Root-level artifacts (not part of the project)
+/db.json
+/package.json
+
+# IDE
+.idea/
+.vscode/
+
+# Personal resume scripts & content (job hunting, not project)
+gen_*.py
+generate_*.py
+resume_*.txt

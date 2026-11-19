@@ -43,3 +43,13 @@ def test_login_wrong_password():
     body = resp.json()
     assert body["code"] == 1002
     assert "用户名或密码错误" in body["message"]
+
+
+def test_login_user_not_exist():
+    """用户名不存在 — 与密码错误返回相同模糊提示，防止账号枚举"""
+    data = {"username": "no_such_user_404", "password": "Test@123456"}
+    resp = requests.post("http://localhost:3000/login", json=data)
+    assert resp.status_code == 401
+    body = resp.json()
+    assert body["code"] == 1002
+    assert "用户名或密码错误" in body["message"]
